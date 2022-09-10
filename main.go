@@ -118,12 +118,14 @@ func writeGeoJson() {
 				"prediction_available": true,
 				"prediction_quality":   prediction.PredictionQuality,
 				"prediction_time_diff": time.Now().Unix() - predictionTime,
+				"prediction_sg_id":     prediction.SignalGroupId,
 			}
 		} else {
 			feature.Properties = map[string]interface{}{
 				"prediction_available": false,
 				"prediction_quality":   0,
 				"prediction_time_diff": 0,
+				"prediction_sg_id":     "",
 			}
 		}
 		featureCollection.AddFeature(feature)
