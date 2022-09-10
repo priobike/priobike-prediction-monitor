@@ -85,6 +85,7 @@ func Listen() {
 	opts.SetDefaultPublishHandler(func(client mqtt.Client, msg mqtt.Message) {
 		onMessageReceived(client, msg)
 	})
+	opts.AutoReconnect = true
 
 	client := mqtt.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
