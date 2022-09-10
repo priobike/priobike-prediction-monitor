@@ -87,6 +87,13 @@ func Listen() {
 	})
 	opts.AutoReconnect = true
 
+	opts.OnConnect = func(client mqtt.Client) {
+		fmt.Println("Connected to mqtt broker.")
+	}
+	opts.OnConnectionLost = func(client mqtt.Client, err error) {
+		fmt.Println("Connection to mqtt broker lost.")
+	}
+
 	client := mqtt.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		panic(token.Error())
