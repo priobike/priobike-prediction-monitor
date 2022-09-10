@@ -28,6 +28,9 @@ func (p *Prediction) parseTimestamp() (int64, error) {
 	if err != nil {
 		// try to insert seconds
 		parts := strings.Split(timestamp, "Z")
+		if len(parts) != 2 {
+			return 0, err
+		}
 		timestamp = fmt.Sprintf("%s:00Z%s", parts[0], parts[1])
 		parsed, err = time.Parse(time.RFC3339, timestamp)
 		if err != nil {
@@ -85,14 +88,6 @@ func Listen() {
 	opts.SetDefaultPublishHandler(func(client mqtt.Client, msg mqtt.Message) {
 		onMessageReceived(client, msg)
 	})
-	opts.AutoReconnect = true
-
-	opts.OnConnect = func(client mqtt.Client) {
-		fmt.Println("Connected to mqtt broker.")
-	}
-	opts.OnConnectionLost = func(client mqtt.Client, err error) {
-		fmt.Println("Connection to mqtt broker lost.")
-	}
 
 	client := mqtt.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
