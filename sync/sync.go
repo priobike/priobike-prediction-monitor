@@ -2,8 +2,8 @@ package sync
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
+	"monitor/log"
 	"net/http"
 	"net/url"
 	"os"
@@ -22,7 +22,7 @@ var Things = make(map[string]Thing)
 // Periodically sync the things from the SensorThings API.
 func Run() {
 	for {
-		fmt.Println("Syncing locations and other data of the things...")
+		log.Info.Println("Syncing things...")
 
 		// Get the SensorThings api base url from the environment.
 		baseUrl := os.Getenv("SENSORTHINGS_URL")
@@ -41,20 +41,20 @@ func Run() {
 		for {
 			resp, err := http.Get(pageUrl)
 			if err != nil {
-				fmt.Println(err)
+				log.Warning.Println("Could not sync things:", err)
 				break
 			}
 			defer resp.Body.Close()
 
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				fmt.Println(err)
+				log.Warning.Println("Could not sync things:", err)
 				break
 			}
 
 			var thingsResponse ThingsResponse
 			if err := json.Unmarshal(body, &thingsResponse); err != nil {
-				fmt.Println(err)
+				log.Warning.Println("Could not sync things:", err)
 				break
 			}
 
@@ -62,7 +62,7 @@ func Run() {
 				// Validate that the thing has a location.
 				_, _, err := thing.LatLng()
 				if err != nil {
-					fmt.Printf("WARNING: Could not get location of thing %d: %s\n", thing.IotId, err)
+					log.Warning.Println("Could not get location for thing:", err)
 					continue
 				}
 				Things[thing.Topic()] = thing
@@ -74,7 +74,7 @@ func Run() {
 			pageUrl = *thingsResponse.NextUri
 		}
 
-		fmt.Printf("Finished sync. Found %d things.\n", len(Things))
+		log.Info.Printf("Synced %d things", len(Things))
 
 		// Sleep for 1 hour.
 		time.Sleep(1 * time.Hour)

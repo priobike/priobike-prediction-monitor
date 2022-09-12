@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	log "monitor/log"
 	predictions "monitor/predictions"
 	sync "monitor/sync"
 	"os"
 
-	"fmt"
 	"io/ioutil"
 	"time"
 
@@ -79,14 +79,14 @@ func checkStatus() {
 	// Get the status file path from the environment.
 	statusFilePath := os.Getenv("STATUS_FILE_PATH")
 	if statusFilePath == "" {
-		fmt.Println("STATUS_FILE_PATH not set. Skipping status file update.")
+		log.Warning.Println("STATUS_FILE_PATH not set. Skipping status file update.")
 		return
 	}
 
 	// Write the status update to the file.
 	statusJson, err := json.Marshal(statusUpdate)
 	if err != nil {
-		fmt.Println(err)
+		log.Error.Println("Error marshalling status update:", err)
 		return
 	}
 	ioutil.WriteFile(statusFilePath, statusJson, 0644)
@@ -97,7 +97,7 @@ func writeGeoJson() {
 	// Get the geojson file path from the environment.
 	geoJsonFilePath := os.Getenv("GEOJSON_FILE_PATH")
 	if geoJsonFilePath == "" {
-		fmt.Println("GEOJSON_FILE_PATH not set. Skipping geojson file update.")
+		log.Warning.Println("GEOJSON_FILE_PATH not set. Skipping geojson file update.")
 		return
 	}
 
@@ -132,7 +132,7 @@ func writeGeoJson() {
 	}
 	geoJson, err := featureCollection.MarshalJSON()
 	if err != nil {
-		fmt.Println("Error marshalling geojson:", err)
+		log.Error.Println("Error marshalling geojson:", err)
 		return
 	}
 
@@ -141,10 +141,11 @@ func writeGeoJson() {
 
 // Continuously log out interesting things.
 func monitor() {
+	log.Info.Println("Starting monitor...")
 	// Wait a bit initially to let the sync service do its job.
 	time.Sleep(20 * time.Second)
 	for {
-		fmt.Println("Calculating metrics...")
+		log.Info.Println("Running monitor...")
 
 		// Check the status of the predictions.
 		checkStatus()
@@ -152,14 +153,14 @@ func monitor() {
 		// Write the geojson file.
 		writeGeoJson()
 
-		fmt.Println("Finished calculating metrics.")
+		log.Info.Println("Done running monitor.")
 		// Sleep for 1 minute.
 		time.Sleep(1 * time.Minute)
 	}
 }
 
 func main() {
-	fmt.Println("Starting monitoring service...")
+	log.Init()
 
 	// Start the sync service.
 	go sync.Run()

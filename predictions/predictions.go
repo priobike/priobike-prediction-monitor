@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"monitor/log"
 	"os"
 	"strings"
 	"time"
@@ -29,12 +30,13 @@ func (p *Prediction) parseTimestamp() (int64, error) {
 		// try to insert seconds
 		parts := strings.Split(timestamp, "Z")
 		if len(parts) != 2 {
+			log.Warning.Println("Could not parse timestamp:", err)
 			return 0, err
 		}
 		timestamp = fmt.Sprintf("%s:00Z%s", parts[0], parts[1])
 		parsed, err = time.Parse(time.RFC3339, timestamp)
 		if err != nil {
-			fmt.Println(err)
+			log.Warning.Println("Could not parse timestamp:", err)
 			return 0, err
 		}
 	}
@@ -53,7 +55,7 @@ func onMessageReceived(client mqtt.Client, msg mqtt.Message) {
 	// Parse the prediction from the message.
 	var prediction Prediction
 	if err := json.Unmarshal(msg.Payload(), &prediction); err != nil {
-		fmt.Println(err)
+		log.Warning.Println("Could not parse prediction:", err)
 		return
 	}
 	// Update the prediction for the connection.
@@ -67,7 +69,7 @@ func onMessageReceived(client mqtt.Client, msg mqtt.Message) {
 
 // Listen for new predictions via mqtt.
 func Listen() {
-	fmt.Println("Starting prediction listener...")
+	log.Info.Println("Listening for predictions...")
 	// Start a mqtt client that listens to all messages on the prediction
 	// service mqtt. The mqtt broker is secured with a username and password.
 	// The credentials and the mqtt url are loaded from environment variables.
@@ -90,6 +92,8 @@ func Listen() {
 	})
 
 	client := mqtt.NewClient(opts)
+
+	log.Info.Println("Connecting to mqtt url:", mqttUrl)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		panic(token.Error())
 	}
