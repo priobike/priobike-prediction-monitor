@@ -59,10 +59,10 @@ func Run() {
 			}
 
 			for _, thing := range thingsResponse.Value {
-				// Validate that the thing has a location.
-				_, _, err := thing.LatLng()
+				// Validate that the thing has a lane.
+				_, err := thing.Lane()
 				if err != nil {
-					log.Warning.Println("Could not get location for thing:", err)
+					log.Warning.Printf("Error getting lane for thing %s: %v\n", thing.Name, err)
 					continue
 				}
 				Things[thing.Topic()] = thing

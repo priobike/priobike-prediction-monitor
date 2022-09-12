@@ -94,52 +94,75 @@ func checkStatus() {
 
 // Write a geojson file for all things.
 func writeGeoJson() {
-	// Get the geojson file path from the environment.
-	geoJsonFilePath := os.Getenv("GEOJSON_FILE_PATH")
-	if geoJsonFilePath == "" {
-		log.Warning.Println("GEOJSON_FILE_PATH not set. Skipping geojson file update.")
+	// Get the geojson file paths from the environment.
+	geoJsonLocationsFilePath := os.Getenv("GEOJSON_LOCATIONS_FILE_PATH")
+	if geoJsonLocationsFilePath == "" {
+		log.Warning.Println("GEOJSON_LOCATIONS_FILE_PATH not set. Skipping geojson file update.")
+		return
+	}
+	geoJsonLanesFilePath := os.Getenv("GEOJSON_LANES_FILE_PATH")
+	if geoJsonLanesFilePath == "" {
+		log.Warning.Println("GEOJSON_LANES_FILE_PATH not set. Skipping geojson file update.")
 		return
 	}
 
 	// Write the geojson to the file.
-	featureCollection := geojson.NewFeatureCollection()
+	locationFeatureCollection := geojson.NewFeatureCollection() // Locations of traffic lights.
+	laneFeatureCollection := geojson.NewFeatureCollection()     // Lanes of traffic lights.
 	for _, thing := range sync.Things {
-		lat, lng, err := thing.LatLng()
+		lane, err := thing.Lane()
 		if err != nil {
+			log.Warning.Printf("Error getting lane for thing %s: %v\n", thing.Name, err)
 			continue
 		}
+		coordinate := lane[0]
+		lat, lng := coordinate[0], coordinate[1]
+
 		// Check if there is a prediction for this thing.
 		prediction, predictionOk := predictions.Current[thing.Topic()]
 		// Check the time diff between the prediction and the current time.
 		predictionTime, predictionTimeOk := predictions.Timestamps[thing.Topic()]
-		feature := geojson.NewPointFeature([]float64{*lng, *lat})
+		// Build the properties.
+		properties := make(map[string]interface{})
 		if predictionOk && predictionTimeOk {
-			feature.Properties = map[string]interface{}{
-				"prediction_available": true,
-				"prediction_quality":   prediction.PredictionQuality,
-				"prediction_time_diff": time.Now().Unix() - predictionTime,
-				"prediction_sg_id":     prediction.SignalGroupId,
-			}
+			properties["prediction_available"] = true
+			properties["prediction_quality"] = prediction.PredictionQuality
+			properties["prediction_time_diff"] = time.Now().Unix() - predictionTime
+			properties["prediction_sg_id"] = prediction.SignalGroupId
 		} else {
-			feature.Properties = map[string]interface{}{
-				"prediction_available": false,
-				"prediction_quality":   -1,
-				"prediction_time_diff": 0,
-				"prediction_sg_id":     "",
-			}
+			properties["prediction_available"] = false
+			properties["prediction_quality"] = -1
+			properties["prediction_time_diff"] = 0
+			properties["prediction_sg_id"] = ""
 		}
 		// Add thing-related properties.
-		feature.Properties["thing_name"] = thing.Name
-		feature.Properties["thing_properties_lanetype"] = thing.Properties.LaneType
-		featureCollection.AddFeature(feature)
+		properties["thing_name"] = thing.Name
+		properties["thing_properties_lanetype"] = thing.Properties.LaneType
+
+		// Make a point feature.
+		location := geojson.NewPointFeature([]float64{lng, lat})
+		location.Properties = properties
+		locationFeatureCollection.AddFeature(location)
+
+		// Make a line feature.
+		laneFeature := geojson.NewLineStringFeature(lane)
+		laneFeature.Properties = properties
+		laneFeatureCollection.AddFeature(laneFeature)
 	}
-	geoJson, err := featureCollection.MarshalJSON()
+
+	locationsGeoJson, err := locationFeatureCollection.MarshalJSON()
 	if err != nil {
 		log.Error.Println("Error marshalling geojson:", err)
 		return
 	}
+	ioutil.WriteFile(geoJsonLocationsFilePath, locationsGeoJson, 0644)
 
-	ioutil.WriteFile(geoJsonFilePath, geoJson, 0644)
+	lanesGeoJson, err := laneFeatureCollection.MarshalJSON()
+	if err != nil {
+		log.Error.Println("Error marshalling geojson:", err)
+		return
+	}
+	ioutil.WriteFile(geoJsonLanesFilePath, lanesGeoJson, 0644)
 }
 
 // Continuously log out interesting things.

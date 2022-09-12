@@ -24,21 +24,20 @@ type Thing struct {
 	Locations []Location `json:"Locations"`
 }
 
-// Get the location of a thing. This is the first coordinate of the ingress lane of the thing.
-func (thing Thing) LatLng() (*float64, *float64, error) {
+// Get the lane of a thing. This is the connection lane of the thing.
+func (thing Thing) Lane() ([][]float64, error) {
 	if len(thing.Locations) == 0 {
-		return nil, nil, fmt.Errorf("thing %s has no locations", thing.Name)
+		return nil, fmt.Errorf("thing %s has no locations", thing.Name)
 	}
 	lanes := thing.Locations[0].Location.Geometry.Coordinates
 	if len(lanes) < 2 {
-		return nil, nil, fmt.Errorf("thing %s has no ingress lane", thing.Name)
+		return nil, fmt.Errorf("thing %s has no ingress lane", thing.Name)
 	}
-	ingressLane := lanes[1]
-	if len(ingressLane) < 1 {
-		return nil, nil, fmt.Errorf("ingress lane has no coordinates for thing %s", thing.Name)
+	connectionLane := lanes[1] // 0: ingress lane, 1: connection lane, 2: egress lane
+	if len(connectionLane) < 1 {
+		return nil, fmt.Errorf("connection lane has no coordinates for thing %s", thing.Name)
 	}
-	coordinate := ingressLane[0]
-	return &coordinate[1], &coordinate[0], nil
+	return connectionLane, nil
 }
 
 // Get the mqtt topic of a thing. This is `hamburg`/name.
