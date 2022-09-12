@@ -7,6 +7,7 @@ import (
 	"monitor/log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -44,11 +45,20 @@ func (p *Prediction) parseTimestamp() (int64, error) {
 	return unix, nil
 }
 
+// A mutex that protects writes to the current map.
+var CurrentMutex = &sync.Mutex{}
+
 // A map that contains the current prediction for each mqtt topic.
 var Current = make(map[string]Prediction)
 
+// A mutex that protects writes to the timestamps map.
+var TimestampsMutex = &sync.Mutex{}
+
 // A map that contains timestamps of the last prediction for each mqtt topic.
 var Timestamps = make(map[string]int64)
+
+// An integer that represents the number of messages received.
+var received = 0
 
 // A callback that is executed when new messages arrive on the mqtt topic.
 func onMessageReceived(client mqtt.Client, msg mqtt.Message) {
@@ -59,17 +69,30 @@ func onMessageReceived(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	// Update the prediction for the connection.
+	CurrentMutex.Lock()
 	Current[msg.Topic()] = prediction
+	CurrentMutex.Unlock()
 	// Update the timestamp for the connection with the current unix timestamp.
 	unixtime, err := prediction.parseTimestamp()
 	if err == nil {
+		TimestampsMutex.Lock()
 		Timestamps[msg.Topic()] = unixtime
+		TimestampsMutex.Unlock()
+	}
+	// Increment the number of received messages.
+	received++
+}
+
+// Print out the number of received messages periodically.
+func Print() {
+	for {
+		time.Sleep(60 * time.Second)
+		log.Info.Printf("Received %d predictions since service startup.", received)
 	}
 }
 
 // Listen for new predictions via mqtt.
 func Listen() {
-	log.Info.Println("Listening for predictions...")
 	// Start a mqtt client that listens to all messages on the prediction
 	// service mqtt. The mqtt broker is secured with a username and password.
 	// The credentials and the mqtt url are loaded from environment variables.
@@ -77,6 +100,8 @@ func Listen() {
 	if mqttUrl == "" {
 		panic("MQTT_URL not set")
 	}
+	log.Info.Println("Connecting to prediction mqtt broker at :", mqttUrl)
+
 	mqttUsername := os.Getenv("MQTT_USERNAME")
 	mqttPassword := os.Getenv("MQTT_PASSWORD")
 
@@ -86,21 +111,39 @@ func Listen() {
 		opts.SetUsername(mqttUsername)
 		opts.SetPassword(mqttPassword)
 	}
-	opts.SetClientID(fmt.Sprintf("priobike-prediction-monitor-%d", rand.Int()))
+	opts.SetConnectTimeout(10 * time.Second)
+	opts.SetConnectRetry(true)
+	opts.SetConnectRetryInterval(5 * time.Second)
+	opts.SetAutoReconnect(true)
+	opts.SetKeepAlive(60 * time.Second)
+	opts.SetPingTimeout(10 * time.Second)
+	opts.SetOnConnectHandler(func(client mqtt.Client) {
+		log.Info.Println("Connected to prediction mqtt broker.")
+	})
+	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
+		log.Warning.Println("Connection to prediction mqtt broker lost:", err)
+	})
+	randSource := rand.NewSource(time.Now().UnixNano())
+	random := rand.New(randSource)
+	clientID := fmt.Sprintf("priobike-prediction-monitor-%d", random.Int())
+	log.Info.Println("Using client id:", clientID)
+	opts.SetClientID(clientID)
+	opts.SetOrderMatters(false)
 	opts.SetDefaultPublishHandler(func(client mqtt.Client, msg mqtt.Message) {
-		onMessageReceived(client, msg)
+		log.Warning.Println("Received unexpected message on topic:", msg.Topic())
 	})
 
 	client := mqtt.NewClient(opts)
-
-	log.Info.Println("Connecting to mqtt url:", mqttUrl)
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		panic(token.Error())
+	if conn := client.Connect(); conn.Wait() && conn.Error() != nil {
+		panic(conn.Error())
 	}
 
-	if token := client.Subscribe("#", 2, nil); token.Wait() && token.Error() != nil {
-		panic(token.Error())
+	if sub := client.Subscribe("#", 1, onMessageReceived); sub.Wait() && sub.Error() != nil {
+		panic(sub.Error())
 	}
+
+	// Print the number of received messages periodically.
+	go Print()
 
 	// Wait forever.
 	select {}
