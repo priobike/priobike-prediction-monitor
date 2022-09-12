@@ -116,7 +116,7 @@ func writeGeoJson() {
 			continue
 		}
 		coordinate := lane[0]
-		lat, lng := coordinate[0], coordinate[1]
+		lat, lng := coordinate[1], coordinate[0]
 
 		// Check if there is a prediction for this thing.
 		prediction, predictionOk := predictions.Current[thing.Topic()]
