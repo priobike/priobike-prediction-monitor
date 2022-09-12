@@ -27,15 +27,15 @@ type Thing struct {
 // Get the location of a thing. This is the first coordinate of the ingress lane of the thing.
 func (thing Thing) LatLng() (*float64, *float64, error) {
 	if len(thing.Locations) == 0 {
-		return nil, nil, fmt.Errorf("thing has no locations")
+		return nil, nil, fmt.Errorf("thing %s has no locations", thing.Name)
 	}
 	lanes := thing.Locations[0].Location.Geometry.Coordinates
 	if len(lanes) < 2 {
-		return nil, nil, fmt.Errorf("thing has no ingress lane")
+		return nil, nil, fmt.Errorf("thing %s has no ingress lane", thing.Name)
 	}
 	ingressLane := lanes[1]
 	if len(ingressLane) < 1 {
-		return nil, nil, fmt.Errorf("ingress lane has no coordinates")
+		return nil, nil, fmt.Errorf("ingress lane has no coordinates for thing %s", thing.Name)
 	}
 	coordinate := ingressLane[0]
 	return &coordinate[1], &coordinate[0], nil

@@ -123,11 +123,14 @@ func writeGeoJson() {
 		} else {
 			feature.Properties = map[string]interface{}{
 				"prediction_available": false,
-				"prediction_quality":   0,
+				"prediction_quality":   -1,
 				"prediction_time_diff": 0,
 				"prediction_sg_id":     "",
 			}
 		}
+		// Add thing-related properties.
+		feature.Properties["thing_name"] = thing.Name
+		feature.Properties["thing_properties_lanetype"] = thing.Properties.LaneType
 		featureCollection.AddFeature(feature)
 	}
 	geoJson, err := featureCollection.MarshalJSON()
