@@ -19,7 +19,7 @@ type SGStatus struct {
 	// The current prediction quality, if there is a prediction.
 	PredictionQuality *float64 `json:"prediction_quality"`
 	// The unix time of the last prediction, if there is a prediction.
-	PredictionTime *int64 `json:"most_recent_prediction_time"`
+	PredictionTime *int64 `json:"prediction_time"`
 }
 
 // Write a status file for each signal group.
@@ -29,6 +29,14 @@ func WriteStatusForEachSG() {
 	if staticPath == "" {
 		panic("STATIC_PATH not set")
 	}
+
+	// Lock resources.
+	sync.ThingsMutex.Lock()
+	defer sync.ThingsMutex.Unlock()
+	predictions.CurrentMutex.Lock()
+	defer predictions.CurrentMutex.Unlock()
+	predictions.TimestampsMutex.Lock()
+	defer predictions.TimestampsMutex.Unlock()
 
 	for _, thing := range sync.Things {
 		// Create the status summary.
@@ -55,6 +63,14 @@ func WriteStatusForEachSG() {
 			log.Error.Println("Error marshalling status:", err)
 			continue
 		}
-		ioutil.WriteFile(staticPath+thing.Name+"-status.json", statusJson, 0644)
+		path := staticPath + thing.Topic()
+		if err := ioutil.WriteFile(path+"/status.json", statusJson, 0644); err != nil {
+			// If the path contains a directory that does not exist, create it.
+			// But don't create a folder for the file itself.
+			if err := os.MkdirAll(path, 0755); err != nil {
+				log.Error.Println("Error creating directory for status file:", err)
+				continue
+			}
+		}
 	}
 }

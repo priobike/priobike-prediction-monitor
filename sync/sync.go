@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -18,6 +19,9 @@ type ThingsResponse struct {
 
 // A map that contains all things by their prediction mqtt topic.
 var Things = make(map[string]Thing)
+
+// A lock for the things map.
+var ThingsMutex = &sync.Mutex{}
 
 // Periodically sync the things from the SensorThings API.
 func Run() {

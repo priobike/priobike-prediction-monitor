@@ -31,6 +31,14 @@ type StatusSummary struct {
 // Create a summary of the predictions, i.e. whether they are up to date.
 // Write the result to a static directory as json.
 func WriteSummary() {
+	// Lock resources.
+	sync.ThingsMutex.Lock()
+	defer sync.ThingsMutex.Unlock()
+	predictions.CurrentMutex.Lock()
+	defer predictions.CurrentMutex.Unlock()
+	predictions.TimestampsMutex.Lock()
+	defer predictions.TimestampsMutex.Unlock()
+
 	// Fetch the path under which we will save the json files.
 	staticPath := os.Getenv("STATIC_PATH")
 	if staticPath == "" {

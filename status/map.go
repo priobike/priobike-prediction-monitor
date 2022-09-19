@@ -20,6 +20,14 @@ func WriteGeoJSONMap() {
 		panic("STATIC_PATH not set")
 	}
 
+	// Lock resources.
+	sync.ThingsMutex.Lock()
+	defer sync.ThingsMutex.Unlock()
+	predictions.CurrentMutex.Lock()
+	defer predictions.CurrentMutex.Unlock()
+	predictions.TimestampsMutex.Lock()
+	defer predictions.TimestampsMutex.Unlock()
+
 	// Write the geojson to the file.
 	locationFeatureCollection := geojson.NewFeatureCollection() // Locations of traffic lights.
 	laneFeatureCollection := geojson.NewFeatureCollection()     // Lanes of traffic lights.
