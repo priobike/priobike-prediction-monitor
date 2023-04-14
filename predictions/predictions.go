@@ -122,6 +122,7 @@ func Listen() {
 	})
 	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
 		log.Warning.Println("Connection to prediction mqtt broker lost:", err)
+		panic("Intentionally crashing. The docker setup should handle a restart such that a new connection to the mqtt broker can be established.")
 	})
 	randSource := rand.NewSource(time.Now().UnixNano())
 	random := rand.New(randSource)
