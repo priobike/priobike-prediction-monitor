@@ -70,6 +70,7 @@ else
         echo "The most_recent_prediction_time doesn't get updated."
         exit 1
     else
+        # Healthy
         echo "The most_recent_prediction_time get's updated normally."
         exit 0
     fi
