@@ -21,9 +21,9 @@ type StatusSummary struct {
 	// The number of predictions with quality <= 0.5.
 	NumBadPredictions int `json:"num_bad_predictions"`
 	// The time of the most recent prediction.
-	MostRecentPredictionTime *int64 `json:"most_recent_prediction_time"`
+	MostRecentPredictionTime int64 `json:"most_recent_prediction_time"`
 	// The time of the oldest prediction.
-	OldestPredictionTime *int64 `json:"oldest_prediction_time"`
+	OldestPredictionTime int64 `json:"oldest_prediction_time"`
 	// The average prediction quality.
 	AveragePredictionQuality *float64 `json:"average_prediction_quality"`
 }
@@ -48,14 +48,15 @@ func WriteSummary() {
 	numThings := len(sync.Things)
 	numPredictions := len(predictions.Current)
 
-	var mostRecentPredictionTime *int64 = nil
-	var oldestPredictionTime *int64 = nil
+	var mostRecentPredictionTime int64 = 0
+	var oldestPredictionTime int64 = 0
+
 	for _, timestamp := range predictions.Timestamps {
-		if mostRecentPredictionTime == nil || timestamp > *mostRecentPredictionTime {
-			mostRecentPredictionTime = &timestamp
+		if mostRecentPredictionTime == 0 || timestamp > mostRecentPredictionTime {
+			mostRecentPredictionTime = timestamp
 		}
-		if oldestPredictionTime == nil || timestamp < *oldestPredictionTime {
-			oldestPredictionTime = &timestamp
+		if oldestPredictionTime == 0 || timestamp < oldestPredictionTime {
+			oldestPredictionTime = timestamp
 		}
 	}
 

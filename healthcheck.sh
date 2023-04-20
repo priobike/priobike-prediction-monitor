@@ -65,13 +65,13 @@ else
         exit 1
     fi
 
-    if (( first_most_recent_prediction_time == second_most_recent_prediction_time )); then
+    if (( first_most_recent_prediction_time >= second_most_recent_prediction_time )); then
         # Unhealthy
-        echo "The most_recent_prediction_time doesn't get updated."
+        echo "The most_recent_prediction_time doesn't increase."
         exit 1
     else
         # Healthy
-        echo "The most_recent_prediction_time get's updated normally."
+        echo "The most_recent_prediction_time get's increased normally."
         exit 0
     fi
 fi
