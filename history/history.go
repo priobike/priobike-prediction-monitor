@@ -140,6 +140,7 @@ func Sync() {
 			}
 			if validDayHistory {
 				ioutil.WriteFile(staticPath+"day-history.json", statusJson, 0644)
+				log.Info.Println("Synced history")
 			}
 		}
 
