@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"time"
 )
@@ -57,14 +58,14 @@ func Sync() {
 
 		prometheusExpressionListDayHistory := map[string]string{
 			// Number of all possible predictions.
-			"prediction_service_subscription_count_total": "prediction_service_subscription_count_total OR on() vector(0)",
+			"prediction_service_subscription_count_total": "prediction_service_subscription_count_total OR vector(0)",
 			// Number of published predictions.
 			// For the day history we want a granularity of 30 minutes.
 			// Each subscription is valid for 120 seconds.
 			// Therefore we get, how many predictions were published in the last 1800 seconds (30 minutes)
 			// and divide it by 15, to get how many predictions we published on average every 120 seconds.
 			// The division by 2 is necessary, because TODO (copied from Grafana).
-			"average_prediction_service_predictions_count_total": "increase(prediction_service_predictions_count_total{}[1800s]) / 15 / 2 OR on() vector(0)",
+			"average_prediction_service_predictions_count_total": "increase(prediction_service_predictions_count_total{}[1800s]) / 15 / 2 OR vector(0)",
 		}
 
 		dayHistory := make(map[string][][]interface{})
@@ -127,7 +128,23 @@ func Sync() {
 
 			// Add the data to the history.
 			for _, result := range prometheusResponseParsed.Data.Result {
-				dayHistory[key] = result.Values
+				if dayHistory[key] == nil {
+					dayHistory[key] = result.Values
+				} else {
+					dayHistory[key] = append(dayHistory[key], result.Values...)
+				}
+			}
+
+			// If we have less than 48 values, we have a gap in the data.
+			if len(dayHistory[key]) < 48 {
+				log.Warning.Println("Something went wrong while syncing history: We have less than 48 values for ", key)
+			}
+
+			// Sort the day history by time.
+			if len(prometheusExpressionListDayHistory) > 1 {
+				sort.Slice(dayHistory[key], func(i, j int) bool {
+					return dayHistory[key][i][0].(float64) < dayHistory[key][j][0].(float64)
+				})
 			}
 		}
 
