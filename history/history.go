@@ -50,23 +50,25 @@ func Sync() {
 		panic("PROMETHEUS_URL is not set")
 	}
 
+	validDayHistory := true
+
 	for {
 		log.Info.Println("Syncing history...")
 
 		prometheusExpressionListDayHistory := map[string]string{
 			// Number of all possible predictions.
-			"prediction_service_subscription_count_total": "prediction_service_subscription_count_total",
+			"prediction_service_subscription_count_total": "prediction_service_subscription_count_total OR on() vector(0)",
 			// Number of published predictions.
 			// For the day history we want a granularity of 30 minutes.
 			// Each subscription is valid for 120 seconds.
 			// Therefore we get, how many predictions were published in the last 1800 seconds (30 minutes)
 			// and divide it by 15, to get how many predictions we published on average every 120 seconds.
 			// The division by 2 is necessary, because TODO (copied from Grafana).
-			"average_prediction_service_predictions_count_total": "increase(prediction_service_predictions_count_total{}[1800s]) / 15 / 2",
+			"average_prediction_service_predictions_count_total": "increase(prediction_service_predictions_count_total{}[1800s]) / 15 / 2 OR on() vector(0)",
 		}
 
 		dayHistory := make(map[string][][]interface{})
-		validDayHistory := true
+		validDayHistory = true
 
 		currentTime := time.Now()
 
@@ -135,9 +137,10 @@ func Sync() {
 			if err != nil {
 				log.Error.Println("Error marshalling history summary:", err)
 				validDayHistory = false
-				return
 			}
-			ioutil.WriteFile(staticPath+"day-history.json", statusJson, 0644)
+			if validDayHistory {
+				ioutil.WriteFile(staticPath+"day-history.json", statusJson, 0644)
+			}
 		}
 
 		// Sleep for 30 minutes.
