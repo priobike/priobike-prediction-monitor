@@ -1,0 +1,9 @@
+{
+    "status_update_time": 1685714066,
+    "num_things": 5345,
+    "num_predictions": 4729,
+    "num_bad_predictions": 3135,
+    "most_recent_prediction_time": 1685714007,
+    "oldest_prediction_time": 1685283863,
+    "average_prediction_quality": 0.31820680905054055
+}
