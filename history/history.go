@@ -12,8 +12,11 @@ import (
 )
 
 type Response struct {
-	Status string `json:"status"`
-	Data   Data   `json:"data"`
+	Status    string   `json:"status"`
+	Data      Data     `json:"data"`
+	ErrorType string   `json:"errorType,omitempty"`
+	Error     string   `json:"error,omitempty"`
+	Warnings  []string `json:"warnings,omitempty"`
 }
 
 type Data struct {
@@ -40,14 +43,14 @@ func Sync() {
 		panic("STATIC_PATH not set")
 	}
 
+	// Get the Prometheus api base url from the environment.
+	baseUrl := os.Getenv("PROMETHEUS_URL")
+	if baseUrl == "" {
+		panic("PROMETHEUS_URL is not set")
+	}
+
 	for {
 		log.Info.Println("Syncing history...")
-
-		// Get the Prometheus api base url from the environment.
-		baseUrl := os.Getenv("PROMETHEUS_URL")
-		if baseUrl == "" {
-			panic("PROMETHEUS_URL is not set")
-		}
 
 		prometheusExpressionListDayHistory := map[string]string{
 			// Number of all possible predictions.
@@ -99,8 +102,16 @@ func Sync() {
 				break
 			}
 
+			if prometheusResponseParsed.Warnings != nil {
+				for _, warning := range prometheusResponseParsed.Warnings {
+					log.Warning.Println("Warning got returned by Prometheus:", warning)
+				}
+			}
+
 			if prometheusResponseParsed.Status != "success" {
 				log.Warning.Println("Could not sync history:", prometheusResponseParsed.Status)
+				log.Warning.Println("Error type:", prometheusResponseParsed.ErrorType)
+				log.Warning.Println("Error:", prometheusResponseParsed.Error)
 				validDayHistory = false
 				break
 			}
