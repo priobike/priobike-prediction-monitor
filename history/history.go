@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"time"
 )
@@ -138,19 +139,34 @@ func Sync() {
 				if dayHistory[key] == nil {
 					dayHistory[key] = result.Values
 				} else {
+					// List with the indices of the values that we need to update.
+					// -1 means that we don't need to update the value.
+					// -2 means that we need to append the value.
 					indicesToUpdate := make([]int, 0)
 					for _, value := range result.Values {
+						updated := false
+						existent := false
 						for i, existingValue := range dayHistory[key] {
+							if existingValue[0] == value[0] {
+								existent = true
+							}
 							if existingValue[0] == value[0] && value[1] != "0" {
 								indicesToUpdate = append(indicesToUpdate, i)
-							} else {
-								indicesToUpdate = append(indicesToUpdate, -i)
+								updated = true
+								break
 							}
+						}
+						if !updated {
+							indicesToUpdate = append(indicesToUpdate, -1)
+						} else if !existent {
+							indicesToUpdate = append(indicesToUpdate, -2)
 						}
 					}
 					for i, index := range indicesToUpdate {
 						if index > 0 {
 							dayHistory[key][index] = result.Values[i]
+						} else if index == -2 {
+							dayHistory[key] = append(dayHistory[key], result.Values[i])
 						}
 					}
 				}
@@ -159,6 +175,13 @@ func Sync() {
 			// If we have less than 48 values, we have a gap in the data.
 			if len(dayHistory[key]) < 48 {
 				log.Warning.Println("Something went wrong while syncing history: We have less than 48 values for ", key)
+			}
+
+			// Sort the day history by time.
+			if len(prometheusExpressionListDayHistory) > 1 {
+				sort.Slice(dayHistory[key], func(i, j int) bool {
+					return dayHistory[key][i][0].(float64) < dayHistory[key][j][0].(float64)
+				})
 			}
 		}
 
