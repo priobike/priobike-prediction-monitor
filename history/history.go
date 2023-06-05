@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -79,7 +80,7 @@ func Sync() {
 				baseUrl+"/api/v1/query_range",
 				"application/x-www-form-urlencoded",
 				bytes.NewBufferString(
-					"query=("+url.QueryEscape(expression)+")&start="+while.Format(time.UnixDate)+"&end="+until.Format(time.UnixDate)+"&step="+step.String()))
+					"query=("+url.QueryEscape(expression)+")&start="+strconv.FormatInt(while.Unix(), 10)+"&end="+strconv.FormatInt(until.Unix(), 10)+"&step="+step.String()))
 			if err != nil {
 				log.Warning.Println("Could not sync history:", err)
 				validDayHistory = false
