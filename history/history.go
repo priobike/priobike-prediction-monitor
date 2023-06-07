@@ -191,6 +191,9 @@ func Sync() {
 					log.Warning.Println("During history sync a prediction is not of type float64: ", value[1].(string))
 					continue
 				}
+				if dayHistoryWithMap[key] == nil {
+					dayHistoryWithMap[key] = make(map[int]float64)
+				}
 				dayHistoryWithMap[key][value[0].(int)] = float
 			}
 		}
@@ -341,6 +344,9 @@ func Sync() {
 				if err != nil {
 					log.Warning.Println("During history sync a prediction is not of type float64: ", value[1].(string))
 					continue
+				}
+				if weekHistoryWithMap[key] == nil {
+					weekHistoryWithMap[key] = make(map[int]float64)
 				}
 				weekHistoryWithMap[key][value[0].(int)] = float
 			}
