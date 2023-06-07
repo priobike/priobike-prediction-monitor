@@ -74,7 +74,7 @@ func Sync() {
 		}
 
 		dayHistoryWithList := make(map[string][][]interface{})
-		dayHistoryWithMap := make(map[string]map[int]float64)
+		dayHistoryWithMap := make(map[string]map[float64]float64)
 		validDayHistory = true
 
 		currentTime := time.Now()
@@ -192,9 +192,9 @@ func Sync() {
 					continue
 				}
 				if dayHistoryWithMap[key] == nil {
-					dayHistoryWithMap[key] = make(map[int]float64)
+					dayHistoryWithMap[key] = make(map[float64]float64)
 				}
-				dayHistoryWithMap[key][value[0].(int)] = float
+				dayHistoryWithMap[key][value[0].(float64)] = float
 			}
 		}
 
@@ -230,7 +230,7 @@ func Sync() {
 		}
 
 		weekHistoryWithList := make(map[string][][]interface{})
-		weekHistoryWithMap := make(map[string]map[int]float64)
+		weekHistoryWithMap := make(map[string]map[float64]float64)
 		validWeekHistory = true
 
 		// Fetch the week history. Get each of the metric for the last 24 hours (each 120 minutes).
@@ -346,9 +346,9 @@ func Sync() {
 					continue
 				}
 				if weekHistoryWithMap[key] == nil {
-					weekHistoryWithMap[key] = make(map[int]float64)
+					weekHistoryWithMap[key] = make(map[float64]float64)
 				}
-				weekHistoryWithMap[key][value[0].(int)] = float
+				weekHistoryWithMap[key][value[0].(float64)] = float
 			}
 		}
 
