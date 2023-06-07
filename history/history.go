@@ -74,6 +74,7 @@ func Sync() {
 		}
 
 		dayHistory := make(map[string][][]interface{})
+		dayHistoryMap := make(map[int]float64)
 		validDayHistory = true
 
 		currentTime := time.Now()
@@ -182,11 +183,21 @@ func Sync() {
 			sort.Slice(dayHistory[key], func(i, j int) bool {
 				return dayHistory[key][i][0].(float64) < dayHistory[key][j][0].(float64)
 			})
+
+			// Convert to map.
+			for _, value := range dayHistory[key] {
+				float, err := strconv.ParseFloat(value[1].(string), 64)
+				if err != nil {
+					log.Warning.Println("During history sync a prediction is not of type float64: ", value[1].(string))
+					continue
+				}
+				dayHistoryMap[value[0].(int)] = float
+			}
 		}
 
 		if validDayHistory {
 			// Write the history update to the file.
-			statusJson, err := json.Marshal(dayHistory)
+			statusJson, err := json.Marshal(dayHistoryMap)
 			if err != nil {
 				log.Error.Println("Error marshalling day history summary:", err)
 				validDayHistory = false
@@ -216,6 +227,7 @@ func Sync() {
 		}
 
 		weekHistory := make(map[string][][]interface{})
+		weekHistoryMap := make(map[int]float64)
 		validWeekHistory = true
 
 		// Fetch the week history. Get each of the metric for the last 24 hours (each 120 minutes).
@@ -315,18 +327,28 @@ func Sync() {
 
 			// If we have less than 84 values, we have a gap in the data.
 			if len(weekHistory[key]) < 84 {
-				log.Warning.Println("Something went wrong while syncing week history: We have less than 48 values for ", key)
+				log.Warning.Println("Something went wrong while syncing week history: We have less than 84 values for ", key)
 			}
 
 			// Sort the week history by time.
 			sort.Slice(weekHistory[key], func(i, j int) bool {
 				return weekHistory[key][i][0].(float64) < weekHistory[key][j][0].(float64)
 			})
+
+			// Convert to map.
+			for _, value := range weekHistory[key] {
+				float, err := strconv.ParseFloat(value[1].(string), 64)
+				if err != nil {
+					log.Warning.Println("During history sync a prediction is not of type float64: ", value[1].(string))
+					continue
+				}
+				weekHistoryMap[value[0].(int)] = float
+			}
 		}
 
 		if validWeekHistory {
 			// Write the history update to the file.
-			statusJson, err := json.Marshal(weekHistory)
+			statusJson, err := json.Marshal(weekHistoryMap)
 			if err != nil {
 				log.Error.Println("Error marshalling week history summary:", err)
 				validWeekHistory = false
