@@ -73,8 +73,8 @@ func Sync() {
 			"average_prediction_service_predictions_count_total": "increase(prediction_service_predictions_count_total{}[1800s]) / 15 / 2 OR vector(0)",
 		}
 
-		dayHistory := make(map[string][][]interface{})
-		dayHistoryMap := make(map[int]float64)
+		dayHistoryWithList := make(map[string][][]interface{})
+		dayHistoryWithMap := make(map[string]map[int]float64)
 		validDayHistory = true
 
 		currentTime := time.Now()
@@ -138,8 +138,8 @@ func Sync() {
 			// We get two results. One where each timestamp is "0" and one where for each timestamp where we have data, the value is not "0".
 			// We want to merge these two results such that we always use the object with != "0" if available.
 			for _, result := range prometheusResponseParsed.Data.Result {
-				if dayHistory[key] == nil {
-					dayHistory[key] = result.Values
+				if dayHistoryWithList[key] == nil {
+					dayHistoryWithList[key] = result.Values
 				} else {
 					// List with the indices of the values that we need to update.
 					// -1 means that we don't need to update the value.
@@ -148,7 +148,7 @@ func Sync() {
 					for _, value := range result.Values {
 						updated := false
 						existent := false
-						for i, existingValue := range dayHistory[key] {
+						for i, existingValue := range dayHistoryWithList[key] {
 							if existingValue[0] == value[0] {
 								existent = true
 							}
@@ -166,38 +166,38 @@ func Sync() {
 					}
 					for i, index := range indicesToUpdate {
 						if index > 0 {
-							dayHistory[key][index] = result.Values[i]
+							dayHistoryWithList[key][index] = result.Values[i]
 						} else if index == -2 {
-							dayHistory[key] = append(dayHistory[key], result.Values[i])
+							dayHistoryWithList[key] = append(dayHistoryWithList[key], result.Values[i])
 						}
 					}
 				}
 			}
 
 			// If we have less than 48 values, we have a gap in the data.
-			if len(dayHistory[key]) < 48 {
+			if len(dayHistoryWithList[key]) < 48 {
 				log.Warning.Println("Something went wrong while syncing day history: We have less than 48 values for ", key)
 			}
 
 			// Sort the day history by time.
-			sort.Slice(dayHistory[key], func(i, j int) bool {
-				return dayHistory[key][i][0].(float64) < dayHistory[key][j][0].(float64)
+			sort.Slice(dayHistoryWithList[key], func(i, j int) bool {
+				return dayHistoryWithList[key][i][0].(float64) < dayHistoryWithList[key][j][0].(float64)
 			})
 
 			// Convert to map.
-			for _, value := range dayHistory[key] {
+			for _, value := range dayHistoryWithList[key] {
 				float, err := strconv.ParseFloat(value[1].(string), 64)
 				if err != nil {
 					log.Warning.Println("During history sync a prediction is not of type float64: ", value[1].(string))
 					continue
 				}
-				dayHistoryMap[value[0].(int)] = float
+				dayHistoryWithMap[key][value[0].(int)] = float
 			}
 		}
 
 		if validDayHistory {
 			// Write the history update to the file.
-			statusJson, err := json.Marshal(dayHistoryMap)
+			statusJson, err := json.Marshal(dayHistoryWithMap)
 			if err != nil {
 				log.Error.Println("Error marshalling day history summary:", err)
 				validDayHistory = false
@@ -226,8 +226,8 @@ func Sync() {
 			"average_prediction_service_predictions_count_total": "increase(prediction_service_predictions_count_total{}[7200s]) / 60 / 2 OR vector(0)",
 		}
 
-		weekHistory := make(map[string][][]interface{})
-		weekHistoryMap := make(map[int]float64)
+		weekHistoryWithList := make(map[string][][]interface{})
+		weekHistoryWithMap := make(map[string]map[int]float64)
 		validWeekHistory = true
 
 		// Fetch the week history. Get each of the metric for the last 24 hours (each 120 minutes).
@@ -289,8 +289,8 @@ func Sync() {
 			// We get two results. One where each timestamp is "0" and one where for each timestamp where we have data, the value is not "0".
 			// We want to merge these two results such that we always use the object with != "0" if available.
 			for _, result := range prometheusResponseParsed.Data.Result {
-				if weekHistory[key] == nil {
-					weekHistory[key] = result.Values
+				if weekHistoryWithList[key] == nil {
+					weekHistoryWithList[key] = result.Values
 				} else {
 					// List with the indices of the values that we need to update.
 					// -1 means that we don't need to update the value.
@@ -299,7 +299,7 @@ func Sync() {
 					for _, value := range result.Values {
 						updated := false
 						existent := false
-						for i, existingValue := range weekHistory[key] {
+						for i, existingValue := range weekHistoryWithList[key] {
 							if existingValue[0] == value[0] {
 								existent = true
 							}
@@ -317,38 +317,38 @@ func Sync() {
 					}
 					for i, index := range indicesToUpdate {
 						if index > 0 {
-							weekHistory[key][index] = result.Values[i]
+							weekHistoryWithList[key][index] = result.Values[i]
 						} else if index == -2 {
-							weekHistory[key] = append(weekHistory[key], result.Values[i])
+							weekHistoryWithList[key] = append(weekHistoryWithList[key], result.Values[i])
 						}
 					}
 				}
 			}
 
 			// If we have less than 84 values, we have a gap in the data.
-			if len(weekHistory[key]) < 84 {
+			if len(weekHistoryWithList[key]) < 84 {
 				log.Warning.Println("Something went wrong while syncing week history: We have less than 84 values for ", key)
 			}
 
 			// Sort the week history by time.
-			sort.Slice(weekHistory[key], func(i, j int) bool {
-				return weekHistory[key][i][0].(float64) < weekHistory[key][j][0].(float64)
+			sort.Slice(weekHistoryWithList[key], func(i, j int) bool {
+				return weekHistoryWithList[key][i][0].(float64) < weekHistoryWithList[key][j][0].(float64)
 			})
 
 			// Convert to map.
-			for _, value := range weekHistory[key] {
+			for _, value := range weekHistoryWithList[key] {
 				float, err := strconv.ParseFloat(value[1].(string), 64)
 				if err != nil {
 					log.Warning.Println("During history sync a prediction is not of type float64: ", value[1].(string))
 					continue
 				}
-				weekHistoryMap[value[0].(int)] = float
+				weekHistoryWithMap[key][value[0].(int)] = float
 			}
 		}
 
 		if validWeekHistory {
 			// Write the history update to the file.
-			statusJson, err := json.Marshal(weekHistoryMap)
+			statusJson, err := json.Marshal(weekHistoryWithMap)
 			if err != nil {
 				log.Error.Println("Error marshalling week history summary:", err)
 				validWeekHistory = false
