@@ -311,7 +311,7 @@ func Sync() {
 			}
 		}
 
-		// Sleep for 30 minutes.
-		time.Sleep(30 * time.Minute)
+		// Sleep for 1 minute.
+		time.Sleep(1 * time.Minute)
 	}
 }
