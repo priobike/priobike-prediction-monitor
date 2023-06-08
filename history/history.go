@@ -261,42 +261,15 @@ func Sync() {
 				break
 			}
 
-			// Add the data to the history.
-			// We get two results. One where each timestamp is "0" and one where for each timestamp where we have data, the value is not "0".
-			// We want to merge these two results such that we always use the object with != "0" if available.
-			for _, result := range prometheusResponseParsed.Data.Result {
-				if weekHistoryWithList[key] == nil {
-					weekHistoryWithList[key] = result.Values
-				} else {
-					// List with the indices of the values that we need to update.
-					// -1 means that we don't need to update the value.
-					// -2 means that we need to append the value.
-					indicesToUpdate := make([]int, 0)
-					for _, value := range result.Values {
-						updated := false
-						existent := false
-						for i, existingValue := range weekHistoryWithList[key] {
-							if existingValue[0] == value[0] {
-								existent = true
-							}
-							if existingValue[0] == value[0] && value[1] != "0" {
-								indicesToUpdate = append(indicesToUpdate, i)
-								updated = true
-								break
-							}
-						}
-						if !updated {
-							indicesToUpdate = append(indicesToUpdate, -1)
-						} else if !existent {
-							indicesToUpdate = append(indicesToUpdate, -2)
-						}
-					}
-					for i, index := range indicesToUpdate {
-						if index > 0 {
-							weekHistoryWithList[key][index] = result.Values[i]
-						} else if index == -2 {
-							weekHistoryWithList[key] = append(weekHistoryWithList[key], result.Values[i])
-						}
+			// Add results where the value for every timestamp is "0"
+			weekHistoryWithList[key] = prometheusResponseParsed.Data.Result[0].Values
+
+			// Overwrite the values of timestamps where we have actual data.
+			for _, value := range prometheusResponseParsed.Data.Result[1].Values {
+				for i, existingValue := range weekHistoryWithList[key] {
+					if existingValue[0] == value[0] {
+						weekHistoryWithList[key][i] = value
+						break
 					}
 				}
 			}
