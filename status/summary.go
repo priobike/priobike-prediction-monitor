@@ -25,7 +25,7 @@ type StatusSummary struct {
 	// The time of the oldest prediction.
 	OldestPredictionTime int64 `json:"oldest_prediction_time"`
 	// The average prediction quality.
-	AveragePredictionQuality *float64 `json:"average_prediction_quality"`
+	AveragePredictionQuality float64 `json:"average_prediction_quality"`
 }
 
 // Create a summary of the predictions, i.e. whether they are up to date.
@@ -46,7 +46,15 @@ func WriteSummary() {
 	}
 
 	numThings := len(sync.Things)
-	numPredictions := len(predictions.Current)
+
+	// Filter the predictions such that only predictions are count that are not older than 3 minutes.
+	// Also count the number of predictions.
+	numPredictions := 0
+	for _, timestamp := range predictions.Timestamps {
+		if time.Now().Unix()-timestamp < 3*60 {
+			numPredictions++
+		}
+	}
 
 	var mostRecentPredictionTime int64 = 0
 	var oldestPredictionTime int64 = 0
@@ -61,21 +69,29 @@ func WriteSummary() {
 	}
 
 	// Calculate the average prediction quality and the number of bad predictions.
-	var averagePredictionQuality *float64 = nil
+	var averagePredictionQuality float64 = 0
 	numBadPredictions := 0
 	if numPredictions > 0 {
 		var sum float64 = 0
-		for _, prediction := range predictions.Current {
+		for topic, prediction := range predictions.Current {
+			// Only look at predictions that are not older than 3 minutes.
+			if time.Now().Unix()-predictions.Timestamps[topic] > 3*60 {
+				continue
+			}
 			if prediction.PredictionQuality <= 0.5 {
 				numBadPredictions++
 			}
-			if (prediction.PredictionQuality < 0) || (prediction.PredictionQuality > 1) {
+			if prediction.PredictionQuality < 0 {
+				sum += 0
+				continue
+			}
+			if prediction.PredictionQuality > 1 {
+				sum += 1
 				continue
 			}
 			sum += prediction.PredictionQuality
 		}
-		average := sum / float64(numPredictions)
-		averagePredictionQuality = &average
+		averagePredictionQuality = sum / float64(numPredictions)
 	}
 
 	// Write the status update to a json file.

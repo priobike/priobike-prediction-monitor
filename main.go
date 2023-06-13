@@ -1,11 +1,11 @@
 package main
 
 import (
+	"monitor/history"
 	"monitor/log"
 	"monitor/predictions"
 	"monitor/status"
 	"monitor/sync"
-	"monitor/history"
 )
 
 func main() {
