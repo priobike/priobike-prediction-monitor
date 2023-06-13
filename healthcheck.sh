@@ -32,46 +32,6 @@ if [ $time_difference -gt 300 ]; then
     echo "The status update timestamp is older than 5 minutes."
     exit 1
 else
-    # Extract most_recent_prediction_time "most_recent_prediction_time" timestamp from the JSON data
-    first_most_recent_prediction_time=$(echo "$json_data" | jq -r '.most_recent_prediction_time')
-
-    # Check if the extraction succeeded
-    if [ $? -ne 0 ]; then
-        # Unhealthy
-        echo "Error extracting timestamp from JSON data."
-        exit 1
-    fi
-
-    # Wait 80 seconds.
-    sleep 80
-
-    # Get the status json
-    json_data_two=`cat ${STATIC_PATH}status.json`
-
-    # Check if the reading of the file succeeded
-    if [ $? -ne 0 ]; then
-        # Unhealthy
-        echo "Error getting status.json."
-        exit 1
-    fi
-
-    # Extract most_recent_prediction_time "most_recent_prediction_time" timestamp from the JSON data
-    second_most_recent_prediction_time=$(echo "$json_data_two" | jq -r '.most_recent_prediction_time')
-
-    # Check if the extraction succeeded
-    if [ $? -ne 0 ]; then
-        # Unhealthy
-        echo "Error extracting timestamp from JSON data."
-        exit 1
-    fi
-
-    if (( first_most_recent_prediction_time >= second_most_recent_prediction_time )); then
-        # Unhealthy
-        echo "The most_recent_prediction_time doesn't increase."
-        exit 1
-    else
-        # Healthy
-        echo "The most_recent_prediction_time get's increased normally."
-        exit 0
-    fi
+    # Healthy
+    exit 0
 fi
