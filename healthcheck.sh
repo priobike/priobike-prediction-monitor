@@ -33,5 +33,6 @@ if [ $time_difference -gt 300 ]; then
     exit 1
 else
     # Healthy
+    echo "The status update timestamp is younger than 5 minutes."
     exit 0
 fi
