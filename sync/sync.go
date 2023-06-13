@@ -69,7 +69,9 @@ func Run() {
 					log.Warning.Printf("Error getting lane for thing %s: %v\n", thing.Name, err)
 					continue
 				}
+				ThingsMutex.Lock()
 				Things[thing.Topic()] = thing
+				ThingsMutex.Unlock()
 			}
 
 			if thingsResponse.NextUri == nil {
