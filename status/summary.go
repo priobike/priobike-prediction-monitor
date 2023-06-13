@@ -47,7 +47,7 @@ func WriteSummary() {
 
 	numThings := len(sync.Things)
 
-	// Filter the predictions such that only predictions are count that are not older than 3 minutes.
+	// Filter the predictions such that only predictions are counted that are not older than 3 minutes.
 	// Also count the number of predictions.
 	numPredictions := 0
 	for _, timestamp := range predictions.Timestamps {
