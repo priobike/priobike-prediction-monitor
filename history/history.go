@@ -184,10 +184,10 @@ func Sync() {
 
 	for {
 		// Sync the day history.
-		createHistory(staticPath, baseUrl, 24, 30, "day")
+		createHistory(baseUrl, staticPath, 24, 30, "day")
 
 		// Sync the week history.
-		createHistory(staticPath, baseUrl, 168, 30, "week")
+		createHistory(baseUrl, staticPath, 168, 30, "week")
 
 		// Sleep for 1 minute.
 		time.Sleep(1 * time.Minute)
