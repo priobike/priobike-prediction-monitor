@@ -78,14 +78,27 @@ func WriteGeoJSONMap() {
 		laneFeatureCollection.AddFeature(laneFeature)
 
 		// Make a prometheus metric containing all the properties.
-		metric := "prediction{"
+		metric := "prediction_monitor_prediction{"
 		metric += fmt.Sprintf("lat=\"%v\",lng=\"%v\",", lat, lng)
-		for key, value := range properties {
-			metric += fmt.Sprintf("%s=\"%v\",", key, value)
+		if predictionOk && predictionTimeOk {
+			metric += fmt.Sprintf("prediction_available=\"%v\",", true)
+			metric += fmt.Sprintf("prediction_quality=\"%v\",", prediction.PredictionQuality)
+			metric += fmt.Sprintf("prediction_tdiff=\"%v\",", time.Now().Unix()-predictionTime)
+			metric += fmt.Sprintf("prediction_sgid=\"%v\",", prediction.SignalGroupId)
+		} else {
+			metric += fmt.Sprintf("prediction_available=\"%v\",", false)
+			metric += fmt.Sprintf("prediction_quality=\"%v\",", -1)
+			metric += fmt.Sprintf("prediction_tdiff=\"%v\",", 0)
+			metric += fmt.Sprintf("prediction_sgid=\"%v\",", "")
 		}
-		// Remove the last comma.
-		metric = metric[:len(metric)-1]
+		metric += fmt.Sprintf("thing_name=\"%v\",", thing.Name)
+		metric += fmt.Sprintf("thing_lanetype=\"%v\",", thing.Properties.LaneType)
 		metric += "}"
+		if predictionOk && predictionTimeOk {
+			metric += fmt.Sprintf(" %v", prediction.PredictionQuality)
+		} else {
+			metric += " -1"
+		}
 		metrics = append(metrics, metric)
 	}
 
@@ -108,5 +121,6 @@ func WriteGeoJSONMap() {
 	for _, metric := range metrics {
 		metricsString += metric + "\n"
 	}
-	ioutil.WriteFile(staticPath+"predictions-metrics.prom", []byte(metricsString), 0644)
+	// A txt file to directly display it in the browser without downloading it.
+	ioutil.WriteFile(staticPath+"metrics.txt", []byte(metricsString), 0644)
 }
