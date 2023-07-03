@@ -1,6 +1,7 @@
 package status
 
 import (
+	"fmt"
 	"io/ioutil"
 	"monitor/log"
 	"monitor/predictions"
@@ -31,6 +32,11 @@ func WriteGeoJSONMap() {
 	// Write the geojson to the file.
 	locationFeatureCollection := geojson.NewFeatureCollection() // Locations of traffic lights.
 	laneFeatureCollection := geojson.NewFeatureCollection()     // Lanes of traffic lights.
+
+	// Create another list that will contain Prometheus metrics for each thing.
+	// In this way we can visualize the metrics in Grafana, on a map.
+	metrics := make([]string, 0)
+
 	for _, thing := range sync.Things {
 		lane, err := thing.Lane()
 		if err != nil {
@@ -70,6 +76,17 @@ func WriteGeoJSONMap() {
 		laneFeature := geojson.NewLineStringFeature(lane)
 		laneFeature.Properties = properties
 		laneFeatureCollection.AddFeature(laneFeature)
+
+		// Make a prometheus metric containing all the properties.
+		metric := "prediction{"
+		metric += fmt.Sprintf("lat=\"%v\",lng=\"%v\",", lat, lng)
+		for key, value := range properties {
+			metric += fmt.Sprintf("%s=\"%v\",", key, value)
+		}
+		// Remove the last comma.
+		metric = metric[:len(metric)-1]
+		metric += "}"
+		metrics = append(metrics, metric)
 	}
 
 	locationsGeoJson, err := locationFeatureCollection.MarshalJSON()
@@ -85,4 +102,11 @@ func WriteGeoJSONMap() {
 		return
 	}
 	ioutil.WriteFile(staticPath+"predictions-lanes.geojson", lanesGeoJson, 0644)
+
+	// Write the metrics to a file.
+	metricsString := ""
+	for _, metric := range metrics {
+		metricsString += metric + "\n"
+	}
+	ioutil.WriteFile(staticPath+"predictions-metrics.prom", []byte(metricsString), 0644)
 }
