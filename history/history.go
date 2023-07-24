@@ -179,7 +179,8 @@ func Sync() {
 	// Get the Prometheus api base url from the environment.
 	baseUrl := os.Getenv("PROMETHEUS_URL")
 	if baseUrl == "" {
-		panic("PROMETHEUS_URL is not set")
+		log.Warning.Println("PROMETHEUS_URL is not set, history will not be synced.")
+		return
 	}
 
 	for {

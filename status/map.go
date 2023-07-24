@@ -80,7 +80,8 @@ func WriteGeoJSONMap() {
 		// Make a prometheus metric containing all the properties.
 		metric := "prediction_monitor_prediction{"
 		metric += fmt.Sprintf("lat=\"%v\",lng=\"%v\",", lat, lng)
-		if predictionOk && predictionTimeOk {
+		predictionNotTooOld := predictionTimeOk && time.Now().Unix()-predictionTime < 2*60 && time.Now().Unix()-predictionTime > 0
+		if predictionOk && predictionNotTooOld {
 			metric += fmt.Sprintf("prediction_available=\"%v\",", true)
 			metric += fmt.Sprintf("prediction_quality=\"%v\",", prediction.PredictionQuality)
 			metric += fmt.Sprintf("prediction_tdiff=\"%v\",", time.Now().Unix()-predictionTime)
@@ -94,7 +95,7 @@ func WriteGeoJSONMap() {
 		metric += fmt.Sprintf("thing_name=\"%v\",", thing.Name)
 		metric += fmt.Sprintf("thing_lanetype=\"%v\",", thing.Properties.LaneType)
 		metric += "}"
-		if predictionOk && predictionTimeOk {
+		if predictionOk && predictionNotTooOld {
 			metric += fmt.Sprintf(" %v", prediction.PredictionQuality)
 		} else {
 			metric += " -1"
