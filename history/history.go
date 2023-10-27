@@ -1,4 +1,4 @@
-package main
+package main // TODO: change back
 
 import (
 	"bytes"
@@ -49,63 +49,6 @@ var debugLoadFromFileInsteadOfFetching = false // loads the data from a json fil
 var debugSaveFetchesFileToDisk = true          // saves the data from Prometheus to a json file, if the service is reachable from the script
 var debugSaveFinishedListToDisk = true         // saves the good predictions to a json file
 
-// Fetches the data from Prometheus. It is usually not reachable from outside of the VM.
-func fetchFromPrometheus(baseUrl string, staticPath string, forHoursInPast int, intervalMinutes int, name string, expression string) (result Response, err error, validHistory bool) {
-	currentTime := time.Now()
-
-	// Fetch the history.
-	while := currentTime.Add(time.Hour * -time.Duration(forHoursInPast))
-	until := currentTime
-	step := time.Duration(intervalMinutes) * time.Minute
-
-	validHistory = true
-
-	// Fetch the data from Prometheus.
-	// Example response:
-	// {"status":"success","data":{"resultType":"matrix","result":[{"metric":{},"values":[[1685888801,"0"],[1685890601,"0"],[1685892401,"0"],[1685894201,"0"],[1685896001,"0"],[1685897801,"0"],[1685899601,"0"],[1685901401,"0"],[1685903201,"0"],[1685905001,"0"],[1685906801,"0"],[1685908601,"0"],[1685910401,"0"],[1685912201,"0"],[1685914001,"0"],[1685915801,"0"],[1685917601,"0"],[1685919401,"0"],[1685921201,"0"],[1685923001,"0"],[1685924801,"0"],[1685926601,"0"],[1685928401,"0"],[1685930201,"0"],[1685932001,"0"],[1685933801,"0"],[1685935601,"0"],[1685937401,"0"],[1685939201,"0"],[1685941001,"0"],[1685942801,"0"],[1685944601,"0"],[1685946401,"0"],[1685948201,"0"],[1685950001,"0"],[1685951801,"0"],[1685953601,"0"],[1685955401,"0"],[1685957201,"0"],[1685959001,"0"],[1685960801,"0"],[1685962601,"0"],[1685964401,"0"],[1685966201,"0"],[1685968001,"0"],[1685969801,"0"],[1685971601,"0"],[1685973401,"0"],[1685975201,"0"]]},{"metric":{"__name__":"prediction_service_subscription_count_total","instance":"prediction-service:8000","job":"staging-prediction-service"},"values":[[1685966201,"2"],[1685968001,"2"],[1685969801,"2"],[1685971601,"2"],[1685973401,"2"]]}]}}
-	urlRequest := baseUrl + "/api/v1/query_range"
-	contentTypeRequest := "application/x-www-form-urlencoded"
-	bodyRequest :=
-		"query=(" + url.QueryEscape(expression) + ")&start=" + strconv.FormatInt(while.Unix(), 10) + "&end=" + strconv.FormatInt(until.Unix(), 10) + "&step=" + step.String()
-
-	println(urlRequest, contentTypeRequest, bodyRequest)
-
-	prometheusResponse, err := http.Post(urlRequest, contentTypeRequest, bytes.NewBufferString(bodyRequest))
-
-	if err != nil {
-		println("Could not sync ", name, " history:", err)
-		validHistory = false
-	}
-
-	defer prometheusResponse.Body.Close()
-
-	body, err := io.ReadAll(prometheusResponse.Body)
-	if err != nil {
-		println("Could not sync ", name, " history:", err)
-		validHistory = false
-	}
-
-	// Parse the response.
-	var prometheusResponseParsed Response
-	if err := json.Unmarshal(body, &prometheusResponseParsed); err != nil {
-		println("Could not sync ", name, " history:", err)
-		validHistory = false
-	}
-	return prometheusResponseParsed, err, validHistory
-
-}
-
-// Loads a json file for debugging purposes.
-func loadFromFile(key string) (result Response, err error, validHistory bool) {
-	jsonRaw, err := os.ReadFile("debug_" + key + ".json")
-
-	if err != nil {
-		println("Could not read file:", err)
-	}
-	json.Unmarshal(jsonRaw, &result)
-	return result, err, true
-}
-
 // Create the history.
 func createHistory(staticPath string, forHoursInPast int, intervalMinutes int, name string) {
 
@@ -121,12 +64,12 @@ func createHistory(staticPath string, forHoursInPast int, intervalMinutes int, n
 	// it will return no data instead of a zero value.
 	key := "prediction_service_subscription_count_total"
 	expression := "prediction_service_subscription_count_total OR vector(0)"
-	finishedList, validHistory := processResponse(key, expression, staticPath, forHoursInPast, intervalMinutes, name)
+	processedData, validHistory := processResponse(key, expression, staticPath, forHoursInPast, intervalMinutes, name)
 
 	// add list with key to map
 	if validHistory {
 		historyEncodedAsMap[key] = make(map[int]float64)
-		for _, value := range finishedList {
+		for _, value := range processedData {
 			historyEncodedAsMap[key][value.Timestamp] = value.Value
 		}
 	}
@@ -136,12 +79,12 @@ func createHistory(staticPath string, forHoursInPast int, intervalMinutes int, n
 	// it will return no data instead of a zero value.
 	key = "average_prediction_service_predictions_count_total"
 	expression = "increase(prediction_service_predictions_count_total{}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 OR vector(0)"
-	finishedList, validHistory = processResponse(key, expression, staticPath, forHoursInPast, intervalMinutes, name)
+	processedData, validHistory = processResponse(key, expression, staticPath, forHoursInPast, intervalMinutes, name)
 
 	// add list with key to map
 	if validHistory {
 		historyEncodedAsMap[key] = make(map[int]float64)
-		for _, value := range finishedList {
+		for _, value := range processedData {
 			historyEncodedAsMap[key][value.Timestamp] = value.Value
 		}
 	}
@@ -149,14 +92,23 @@ func createHistory(staticPath string, forHoursInPast int, intervalMinutes int, n
 	// Number of published predictions with prediction quality.
 	// "OR vector(0)" is necessary, because otherwise if Prometheus has no data for the given time range,
 	// it will return no data instead of a zero value.
+	// In summary.go bad prediction quality is defined as <= 50.0, therefore we need at least 60.0
 	key = "prediction_service_prediction_quality_distribution_bucket"
-	expression = "increase(prediction_service_prediction_quality_distribution_bucket{le!=\"+Inf\"}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 OR vector(0)"
-	finishedList, validHistory = processResponse(key, expression, staticPath, forHoursInPast, intervalMinutes, name)
+	part1 := "increase(prediction_service_prediction_quality_distribution_bucket{le!=\"0.0\"}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 and "
+	part2 := "increase(prediction_service_prediction_quality_distribution_bucket{le!=\"1.0\"}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 and "
+	part3 := "increase(prediction_service_prediction_quality_distribution_bucket{le!=\"10.0\"}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 and "
+	part4 := "increase(prediction_service_prediction_quality_distribution_bucket{le!=\"20.0\"}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 and "
+	part5 := "increase(prediction_service_prediction_quality_distribution_bucket{le!=\"30.0\"}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 and "
+	part6 := "increase(prediction_service_prediction_quality_distribution_bucket{le!=\"40.0\"}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 and "
+	part7 := "increase(prediction_service_prediction_quality_distribution_bucket{le!=\"50.0\"}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 OR vector(0)"
+	expression = part1 + part2 + part3 + part4 + part5 + part6 + part7
+	println("Debug Expression: ", expression)
+	processedData, validHistory = processResponse(key, expression, staticPath, forHoursInPast, intervalMinutes, name)
 
 	// add list with key to map
 	if validHistory {
 		historyEncodedAsMap[key] = make(map[int]float64)
-		for _, value := range finishedList {
+		for _, value := range processedData {
 			historyEncodedAsMap[key][value.Timestamp] = value.Value
 		}
 	}
@@ -174,22 +126,74 @@ func createHistory(staticPath string, forHoursInPast int, intervalMinutes int, n
 			println("Synced ", name, " history")
 		}
 	}
+}
 
+// Fetches the data from Prometheus. It is usually not reachable from outside of the VM.
+func fetchFromPrometheus(staticPath string, forHoursInPast int, intervalMinutes int, name string, expression string) (prometheusResponseParsed Response, err error, validHistory bool) {
+
+	// TODO: remove and use static path
+	baseUrl := "https://priobike.vkw.tu-dresden.de/staging/prometheus"
+
+	currentTime := time.Now()
+
+	// Fetch the history.
+	while := currentTime.Add(time.Hour * -time.Duration(forHoursInPast))
+	until := currentTime
+	step := time.Duration(intervalMinutes) * time.Minute
+
+	validHistory = true
+
+	// Fetch the data from Prometheus.
+	// Example response:
+	// {"status":"success","data":{"resultType":"matrix","result":[{"metric":{},"values":[[1685888801,"0"],[1685890601,"0"],[1685892401,"0"],[1685894201,"0"],[1685896001,"0"],[1685897801,"0"],[1685899601,"0"],[1685901401,"0"],[1685903201,"0"],[1685905001,"0"],[1685906801,"0"],[1685908601,"0"],[1685910401,"0"],[1685912201,"0"],[1685914001,"0"],[1685915801,"0"],[1685917601,"0"],[1685919401,"0"],[1685921201,"0"],[1685923001,"0"],[1685924801,"0"],[1685926601,"0"],[1685928401,"0"],[1685930201,"0"],[1685932001,"0"],[1685933801,"0"],[1685935601,"0"],[1685937401,"0"],[1685939201,"0"],[1685941001,"0"],[1685942801,"0"],[1685944601,"0"],[1685946401,"0"],[1685948201,"0"],[1685950001,"0"],[1685951801,"0"],[1685953601,"0"],[1685955401,"0"],[1685957201,"0"],[1685959001,"0"],[1685960801,"0"],[1685962601,"0"],[1685964401,"0"],[1685966201,"0"],[1685968001,"0"],[1685969801,"0"],[1685971601,"0"],[1685973401,"0"],[1685975201,"0"]]},{"metric":{"__name__":"prediction_service_subscription_count_total","instance":"prediction-service:8000","job":"staging-prediction-service"},"values":[[1685966201,"2"],[1685968001,"2"],[1685969801,"2"],[1685971601,"2"],[1685973401,"2"]]}]}}
+	urlRequest := baseUrl + "/api/v1/query_range"
+	contentTypeRequest := "application/x-www-form-urlencoded"
+	bodyRequest :=
+		"query=(" + url.QueryEscape(expression) + ")&start=" + strconv.FormatInt(while.Unix(), 10) + "&end=" + strconv.FormatInt(until.Unix(), 10) + "&step=" + step.String()
+
+	println("Debug Query: curl -d \"" + bodyRequest + "\" -X POST " + urlRequest)
+
+	prometheusResponse, err := http.Post(urlRequest, contentTypeRequest, bytes.NewBufferString(bodyRequest))
+	if err != nil {
+		println("Could not sync ", name, " history:", err)
+		validHistory = false
+	}
+
+	defer prometheusResponse.Body.Close()
+
+	body, err := io.ReadAll(prometheusResponse.Body)
+	if err != nil {
+		println("Could not sync ", name, " history:", err)
+		validHistory = false
+	}
+
+	// Parse the response.
+	if err := json.Unmarshal(body, &prometheusResponseParsed); err != nil {
+		println("Could not sync ", name, " history:", err)
+		validHistory = false
+	}
+	return prometheusResponseParsed, err, validHistory
+}
+
+// Loads a json file for debugging purposes.
+func loadFromFile(key string) (result Response, err error, validHistory bool) {
+	jsonRaw, err := os.ReadFile("debug_" + key + ".json")
+
+	if err != nil {
+		println("Could not read file:", err)
+	}
+	json.Unmarshal(jsonRaw, &result)
+	return result, err, true
 }
 
 func processResponse(key string, expression string, staticPath string, forHoursInPast int, intervalMinutes int, name string) (finishedList []DataPoint, validHistory bool) {
+
 	validHistory = true
-
-	// TODO: remove
-	baseUrl := "https://priobike.vkw.tu-dresden.de/staging/prometheus"
-
-	println(expression)
 
 	var history Response
 	var err error
-
 	if !debugLoadFromFileInsteadOfFetching {
-		history, err, validHistory = fetchFromPrometheus(baseUrl, staticPath, forHoursInPast, intervalMinutes, name, expression)
+		history, err, validHistory = fetchFromPrometheus(staticPath, forHoursInPast, intervalMinutes, name, expression)
 		if err != nil {
 			return finishedList, validHistory
 		}
@@ -232,36 +236,19 @@ func processResponse(key string, expression string, staticPath string, forHoursI
 		return finishedList, validHistory
 	}
 
-	// for _, datapoints := range history.Data.Result[0].Values {
-	// 	timestamp := int(datapoints[0].(float64))
-	// 	value := datapoints[1].(string)
-
-	// 	// print everything
-	// 	if timestamp != 0 {
-	// 		println("timestamp", timestamp)
-	// 		println("value", value)
-	// 	}
-	// }
-
 	if len(history.Data.Result[0].Values) < 48 {
 		println("Something went wrong while syncing ", name, " history: We have less than 48 values for ", key)
 	}
 
-	// Depending on the key, we need to filter out bad predictions or just convert the data to a list of DataPoints.
-	if key == "prediction_service_prediction_quality_distribution_bucket" {
-		// In summary.go bad prediction quality is defined as <= 50.0, therefore we need at least 60.0
-		finishedList = filterByQuality(history.Data, 60.0, 100.0)
-	} else {
-		// convert to list of DataPoints
-		for _, datapoints := range history.Data.Result[0].Values {
-			timestamp := int(datapoints[0].(float64))
-			value, err := strconv.ParseFloat(datapoints[1].(string), 64)
-			if err != nil {
-				println("During history sync a prediction is not of type float64: ", datapoints[1].(string))
-				continue
-			}
-			finishedList = append(finishedList, DataPoint{Timestamp: timestamp, Value: value})
+	// convert to list of DataPoints
+	for _, datapoints := range history.Data.Result[0].Values {
+		timestamp := int(datapoints[0].(float64))
+		value, err := strconv.ParseFloat(datapoints[1].(string), 64)
+		if err != nil {
+			println("During history sync a prediction is not of type float64: ", datapoints[1].(string))
+			continue
 		}
+		finishedList = append(finishedList, DataPoint{Timestamp: timestamp, Value: value})
 	}
 
 	// Sort by the timestamp.
@@ -279,30 +266,6 @@ func processResponse(key string, expression string, staticPath string, forHoursI
 	}
 
 	return finishedList, validHistory
-
-}
-
-func filterByQuality(data Data, minQuality float64, maxQuality float64) (newList []DataPoint) {
-	for _, results := range data.Result {
-		// le values are i.e. "1.0", "10.0", "20.0"
-		// parse them as float64
-		quality, err := strconv.ParseFloat(results.Metric.Le, 64)
-		if err != nil {
-			continue
-		}
-		if quality >= minQuality && quality <= maxQuality {
-			for _, datapoints := range results.Values {
-				timestamp := int(datapoints[0].(float64))
-				value, err := strconv.ParseFloat(datapoints[1].(string), 64)
-				if err != nil {
-					println("During history sync a prediction is not of type float64: ", datapoints[1].(string))
-					continue
-				}
-				newList = append(newList, DataPoint{Timestamp: timestamp, Value: value})
-			}
-		}
-	}
-	return newList
 }
 
 // Periodically sync the history from our Prometheus.
