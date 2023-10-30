@@ -137,8 +137,8 @@ func processResponse(key string, expression string, baseUrl string, staticPath s
 			return finishedList, validHistory
 		}
 
+		// Debug mode: Save Prometheus response to json file.
 		if debugSaveFetchedFileToDisk {
-			// Save to json file
 			statusJson, err := json.Marshal(history)
 			if err != nil {
 				log.Info.Println("Error marshalling ", name, " history summary:", err)
@@ -148,7 +148,7 @@ func processResponse(key string, expression string, baseUrl string, staticPath s
 		}
 
 	} else {
-		// Debug mode.
+		// Debug mode: Load from file.
 		history, err, validHistory = loadFromFile(key)
 		if err != nil {
 			return finishedList, validHistory
@@ -197,8 +197,8 @@ func processResponse(key string, expression string, baseUrl string, staticPath s
 		return finishedList[i].Timestamp < finishedList[j].Timestamp
 	})
 
+	// Debug mode: Save the finished list to a json file.
 	if debugSaveFinishedListToDisk {
-		// Save to json file
 		statusJson, err := json.Marshal(finishedList)
 		if err != nil {
 			log.Info.Println("Error marshalling ", name, " history summary:", err)
@@ -244,7 +244,7 @@ func fetchFromPrometheus(baseUrl string, staticPath string, forHoursInPast int, 
 		validHistory = false
 	}
 
-	// Parse the response.
+	// Parse the response and encode it as json.
 	if err := json.Unmarshal(body, &prometheusResponseParsed); err != nil {
 		log.Warning.Println("Could not sync ", name, " history:", err)
 		validHistory = false
@@ -258,7 +258,7 @@ func loadFromFile(key string) (result Response, err error, validHistory bool) {
 	jsonRaw, err := os.ReadFile("debug_" + key + ".json")
 
 	if err != nil {
-		log.Info.Println("Could not read file:", err)
+		log.Warning.Println("Could not read file:", err)
 		validHistory = false
 	}
 	json.Unmarshal(jsonRaw, &result)
