@@ -44,10 +44,10 @@ type Metric struct {
 
 // Set to true to use a local json file instead of fetching the data from Prometheus.
 // Debug-Features:
-var debugMode = true                           // prevents the script from running in an infinite loop
-var debugLoadFromFileInsteadOfFetching = false // loads the data from a json file instead of fetching it from Prometheus
-var debugSaveFetchesFileToDisk = true          // saves the data from Prometheus to a json file, if the service is reachable from the script
-var debugSaveFinishedListToDisk = true         // saves the good predictions to a json file
+var debugMode = true                          // prevents the script from running in an infinite loop
+var debugLoadFromFileInsteadOfFetching = true // loads the data from a json file instead of fetching it from Prometheus, naming convention: debug_<key>.json
+var debugSaveFetchesFileToDisk = true         // saves the data from Prometheus to a json file, if the service is reachable from the script
+var debugSaveFinishedListToDisk = true        // saves the good predictions to a json file
 
 // Create the history.
 func createHistory(staticPath string, forHoursInPast int, intervalMinutes int, name string) {
@@ -59,14 +59,35 @@ func createHistory(staticPath string, forHoursInPast int, intervalMinutes int, n
 
 	historyEncodedAsMap := make(map[string]map[int]float64)
 
+	// Number of published predictions with prediction quality.
+	// "OR vector(0)" is necessary, because otherwise if Prometheus has no data for the given time range,
+	// it will return no data instead of a zero value.
+	// In summary.go bad prediction quality is defined as <= 50.0, therefore we need at least 60.0
+	key := "prediction_service_prediction_quality_distribution_bucket"
+	// +Inf contains everything that is smaller than infinity (so everything) and then we subtract the bad predictions, ie. everything that is <= 50.0
+	part1 := "sum(increase(prediction_service_prediction_quality_distribution_bucket{le=\"+Inf\"}[1800s]) / 15 / 2)-"
+	part2 := "sum(increase(prediction_service_prediction_quality_distribution_bucket{le=\"50.0\"}[1800s]) / 15 / 2)"
+	expression := part1 + part2
+	println("Debug Expression: ", expression)
+	processedData, validHistory := processResponse(key, expression, staticPath, forHoursInPast, intervalMinutes, name)
+
+	// Add list with key to map
+	if validHistory {
+		historyEncodedAsMap[key] = make(map[int]float64)
+		for _, value := range processedData {
+			// if key already exists, add the value to the existing value
+			historyEncodedAsMap[key][value.Timestamp] += value.Value
+		}
+	}
+
 	// Number of all possible predictions.
 	// "OR vector(0)" is necessary, because otherwise if Prometheus has no data for the given time range,
 	// it will return no data instead of a zero value.
-	key := "prediction_service_subscription_count_total"
-	expression := "prediction_service_subscription_count_total OR vector(0)"
-	processedData, validHistory := processResponse(key, expression, staticPath, forHoursInPast, intervalMinutes, name)
+	key = "prediction_service_subscription_count_total"
+	expression = "prediction_service_subscription_count_total OR vector(0)"
+	processedData, validHistory = processResponse(key, expression, staticPath, forHoursInPast, intervalMinutes, name)
 
-	// add list with key to map
+	// Add list with key to map
 	if validHistory {
 		historyEncodedAsMap[key] = make(map[int]float64)
 		for _, value := range processedData {
@@ -81,31 +102,7 @@ func createHistory(staticPath string, forHoursInPast int, intervalMinutes int, n
 	expression = "increase(prediction_service_predictions_count_total{}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 OR vector(0)"
 	processedData, validHistory = processResponse(key, expression, staticPath, forHoursInPast, intervalMinutes, name)
 
-	// add list with key to map
-	if validHistory {
-		historyEncodedAsMap[key] = make(map[int]float64)
-		for _, value := range processedData {
-			historyEncodedAsMap[key][value.Timestamp] = value.Value
-		}
-	}
-
-	// Number of published predictions with prediction quality.
-	// "OR vector(0)" is necessary, because otherwise if Prometheus has no data for the given time range,
-	// it will return no data instead of a zero value.
-	// In summary.go bad prediction quality is defined as <= 50.0, therefore we need at least 60.0
-	key = "prediction_service_prediction_quality_distribution_bucket"
-	part1 := "increase(prediction_service_prediction_quality_distribution_bucket{le!=\"0.0\"}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 and "
-	part2 := "increase(prediction_service_prediction_quality_distribution_bucket{le!=\"1.0\"}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 and "
-	part3 := "increase(prediction_service_prediction_quality_distribution_bucket{le!=\"10.0\"}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 and "
-	part4 := "increase(prediction_service_prediction_quality_distribution_bucket{le!=\"20.0\"}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 and "
-	part5 := "increase(prediction_service_prediction_quality_distribution_bucket{le!=\"30.0\"}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 and "
-	part6 := "increase(prediction_service_prediction_quality_distribution_bucket{le!=\"40.0\"}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 and "
-	part7 := "increase(prediction_service_prediction_quality_distribution_bucket{le!=\"50.0\"}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 OR vector(0)"
-	expression = part1 + part2 + part3 + part4 + part5 + part6 + part7
-	println("Debug Expression: ", expression)
-	processedData, validHistory = processResponse(key, expression, staticPath, forHoursInPast, intervalMinutes, name)
-
-	// add list with key to map
+	// Add list with key to map
 	if validHistory {
 		historyEncodedAsMap[key] = make(map[int]float64)
 		for _, value := range processedData {
@@ -133,13 +130,14 @@ func fetchFromPrometheus(staticPath string, forHoursInPast int, intervalMinutes 
 
 	// TODO: remove and use static path
 	baseUrl := "https://priobike.vkw.tu-dresden.de/staging/prometheus"
+	baseUrl = "http://prometheus:9090"
 
-	currentTime := time.Now()
+	//currentTime := time.Now()
 
 	// Fetch the history.
-	while := currentTime.Add(time.Hour * -time.Duration(forHoursInPast))
-	until := currentTime
-	step := time.Duration(intervalMinutes) * time.Minute
+	// while := currentTime.Add(time.Hour * -time.Duration(forHoursInPast))
+	// until := currentTime
+	//step := time.Duration(intervalMinutes) * time.Minute
 
 	validHistory = true
 
@@ -148,8 +146,10 @@ func fetchFromPrometheus(staticPath string, forHoursInPast int, intervalMinutes 
 	// {"status":"success","data":{"resultType":"matrix","result":[{"metric":{},"values":[[1685888801,"0"],[1685890601,"0"],[1685892401,"0"],[1685894201,"0"],[1685896001,"0"],[1685897801,"0"],[1685899601,"0"],[1685901401,"0"],[1685903201,"0"],[1685905001,"0"],[1685906801,"0"],[1685908601,"0"],[1685910401,"0"],[1685912201,"0"],[1685914001,"0"],[1685915801,"0"],[1685917601,"0"],[1685919401,"0"],[1685921201,"0"],[1685923001,"0"],[1685924801,"0"],[1685926601,"0"],[1685928401,"0"],[1685930201,"0"],[1685932001,"0"],[1685933801,"0"],[1685935601,"0"],[1685937401,"0"],[1685939201,"0"],[1685941001,"0"],[1685942801,"0"],[1685944601,"0"],[1685946401,"0"],[1685948201,"0"],[1685950001,"0"],[1685951801,"0"],[1685953601,"0"],[1685955401,"0"],[1685957201,"0"],[1685959001,"0"],[1685960801,"0"],[1685962601,"0"],[1685964401,"0"],[1685966201,"0"],[1685968001,"0"],[1685969801,"0"],[1685971601,"0"],[1685973401,"0"],[1685975201,"0"]]},{"metric":{"__name__":"prediction_service_subscription_count_total","instance":"prediction-service:8000","job":"staging-prediction-service"},"values":[[1685966201,"2"],[1685968001,"2"],[1685969801,"2"],[1685971601,"2"],[1685973401,"2"]]}]}}
 	urlRequest := baseUrl + "/api/v1/query_range"
 	contentTypeRequest := "application/x-www-form-urlencoded"
+	//bodyRequest :=		"query=(" + url.QueryEscape(expression) + ")&start=" + strconv.FormatInt(while.Unix(), 10) + "&end=" + strconv.FormatInt(until.Unix(), 10) + "&step=" + step.String()
 	bodyRequest :=
-		"query=(" + url.QueryEscape(expression) + ")&start=" + strconv.FormatInt(while.Unix(), 10) + "&end=" + strconv.FormatInt(until.Unix(), 10) + "&step=" + step.String()
+		"query=(" + url.QueryEscape(expression) + ")&start=1698649200&end=1698656400&step=15s"
+		// TODO: hardcode start und end
 
 	println("Debug Query: curl -d \"" + bodyRequest + "\" -X POST " + urlRequest)
 
@@ -199,7 +199,7 @@ func processResponse(key string, expression string, staticPath string, forHoursI
 		}
 
 		if debugSaveFetchesFileToDisk {
-			// save to json file
+			// Save to json file
 			statusJson, err := json.Marshal(history)
 			if err != nil {
 				println("Error marshalling ", name, " history summary:", err)
@@ -240,15 +240,17 @@ func processResponse(key string, expression string, staticPath string, forHoursI
 		println("Something went wrong while syncing ", name, " history: We have less than 48 values for ", key)
 	}
 
-	// convert to list of DataPoints
-	for _, datapoints := range history.Data.Result[0].Values {
-		timestamp := int(datapoints[0].(float64))
-		value, err := strconv.ParseFloat(datapoints[1].(string), 64)
-		if err != nil {
-			println("During history sync a prediction is not of type float64: ", datapoints[1].(string))
-			continue
+	// Convert to list of DataPoints
+	for _, valuePack := range history.Data.Result {
+		for _, datapoints := range valuePack.Values {
+			timestamp := int(datapoints[0].(float64))
+			value, err := strconv.ParseFloat(datapoints[1].(string), 64)
+			if err != nil {
+				println("During history sync a prediction is not of type float64: ", datapoints[1].(string))
+				continue
+			}
+			finishedList = append(finishedList, DataPoint{Timestamp: timestamp, Value: value})
 		}
-		finishedList = append(finishedList, DataPoint{Timestamp: timestamp, Value: value})
 	}
 
 	// Sort by the timestamp.
@@ -257,7 +259,7 @@ func processResponse(key string, expression string, staticPath string, forHoursI
 	})
 
 	if debugSaveFinishedListToDisk {
-		// save to json file
+		// Save to json file
 		statusJson, err := json.Marshal(finishedList)
 		if err != nil {
 			println("Error marshalling ", name, " history summary:", err)
