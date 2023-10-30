@@ -68,14 +68,13 @@ func createHistory(baseUrl string, staticPath string, forHoursInPast int, interv
 	part1 := "sum(increase(prediction_service_prediction_quality_distribution_bucket{le=\"+Inf\"}[1800s]) / 15 / 2)-"
 	part2 := "sum(increase(prediction_service_prediction_quality_distribution_bucket{le=\"50.0\"}[1800s]) / 15 / 2)"
 	expression := part1 + part2
-	log.Info.Println("Debug Expression: ", expression)
 	processedData, validHistory := processResponse(key, expression, baseUrl, staticPath, forHoursInPast, intervalMinutes, name)
 
 	// Add list with key to map
 	if validHistory {
 		historyEncodedAsMap[key] = make(map[int]float64)
 		for _, value := range processedData {
-			// if key already exists, add the value to the existing value
+			// if key already exists, add the value to the existing value, otherwise create a new entry
 			historyEncodedAsMap[key][value.Timestamp] += value.Value
 		}
 	}
@@ -168,7 +167,7 @@ func fetchFromPrometheus(baseUrl string, staticPath string, forHoursInPast int, 
 	return prometheusResponseParsed, err, validHistory
 }
 
-// Debug helper function: Loads a json file for debugging purposes.
+// Debug helper function: Loads a json file for local debugging.
 func loadFromFile(key string) (result Response, err error, validHistory bool) {
 	jsonRaw, err := os.ReadFile("debug_" + key + ".json")
 
