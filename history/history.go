@@ -147,7 +147,7 @@ func fetchFromPrometheus(baseUrl string, staticPath string, forHoursInPast int, 
 
 	prometheusResponse, err := http.Post(urlRequest, contentTypeRequest, bytes.NewBufferString(bodyRequest))
 	if err != nil {
-		log.Info.Println("Could not sync ", name, " history:", err)
+		log.Warning.Println("Could not sync ", name, " history:", err)
 		validHistory = false
 	}
 
@@ -155,13 +155,13 @@ func fetchFromPrometheus(baseUrl string, staticPath string, forHoursInPast int, 
 
 	body, err := io.ReadAll(prometheusResponse.Body)
 	if err != nil {
-		log.Info.Println("Could not sync ", name, " history:", err)
+		log.Warning.Println("Could not sync ", name, " history:", err)
 		validHistory = false
 	}
 
 	// Parse the response.
 	if err := json.Unmarshal(body, &prometheusResponseParsed); err != nil {
-		log.Info.Println("Could not sync ", name, " history:", err)
+		log.Warning.Println("Could not sync ", name, " history:", err)
 		validHistory = false
 	}
 	return prometheusResponseParsed, err, validHistory
@@ -210,26 +210,26 @@ func processResponse(key string, expression string, baseUrl string, staticPath s
 
 	if history.Warnings != nil {
 		for _, warning := range history.Warnings {
-			log.Info.Println("Warning got returned by Prometheus (", name, " history):", warning)
+			log.Warning.Println("Warning got returned by Prometheus (", name, " history):", warning)
 		}
 	}
 
 	if history.Status != "success" {
-		log.Info.Println("Could not sync ", name, " history:", history.Status)
-		log.Info.Println("Error type:", history.ErrorType)
-		log.Info.Println("Error:", history.Error)
+		log.Warning.Println("Could not sync ", name, " history:", history.Status)
+		log.Warning.Println("Error type:", history.ErrorType)
+		log.Warning.Println("Error:", history.Error)
 		validHistory = false
 		return finishedList, validHistory
 	}
 
 	if history.Data.ResultType != "matrix" {
-		log.Info.Println("Could not sync ", name, " history: ResultType is not matrix")
+		log.Warning.Println("Could not sync ", name, " history: ResultType is not matrix")
 		validHistory = false
 		return finishedList, validHistory
 	}
 
 	if len(history.Data.Result[0].Values) < 48 {
-		log.Info.Println("Something went wrong while syncing ", name, " history: We have less than 48 values for ", key)
+		log.Warning.Println("Something went wrong while syncing ", name, " history: We have less than 48 values for ", key)
 	}
 
 	// Convert to list of DataPoints
@@ -238,7 +238,7 @@ func processResponse(key string, expression string, baseUrl string, staticPath s
 			timestamp := int(datapoints[0].(float64))
 			value, err := strconv.ParseFloat(datapoints[1].(string), 64)
 			if err != nil {
-				log.Info.Println("During history sync a prediction is not of type float64: ", datapoints[1].(string))
+				log.Warning.Println("During history sync a prediction is not of type float64: ", datapoints[1].(string))
 				continue
 			}
 			finishedList = append(finishedList, DataPoint{Timestamp: timestamp, Value: value})
@@ -273,7 +273,7 @@ func Sync() {
 	// Get the Prometheus api base url from the environment.
 	baseUrl := os.Getenv("PROMETHEUS_URL")
 	if baseUrl == "" {
-		log.Info.Println("PROMETHEUS_URL is not set, history will not be synced.")
+		log.Warning.Println("PROMETHEUS_URL is not set, history will not be synced.")
 		return
 	}
 
