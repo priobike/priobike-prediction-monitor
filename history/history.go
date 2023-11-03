@@ -62,7 +62,7 @@ func createHistory(baseUrl string, staticPath string, forHoursInPast int, interv
 	// Number of published predictions with prediction quality.
 	// "OR vector(0)" is necessary, because otherwise if Prometheus has no data for the given time range,
 	// it will return no data instead of a zero value.
-	key := "prediction_service_prediction_quality_distribution_bucket"
+	key := "prediction_service_good_prediction_total"
 	// In summary.go bad prediction quality is defined as <= 50.0, therefore we need at least 60.0
 	// +Inf contains everything that is smaller than infinity (so everything) and then we subtract the bad predictions, ie. everything that is <= 50.0
 	part1 := "sum(increase(prediction_service_prediction_quality_distribution_bucket{le=\"+Inf\"}[1800s]) / 15 / 2)-"
