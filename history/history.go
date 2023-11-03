@@ -54,9 +54,6 @@ func createHistory(baseUrl string, staticPath string, forHoursInPast int, interv
 
 	log.Info.Println("Syncing ", name, " history...")
 
-	intervalSeconds := intervalMinutes * 60
-	intervalFactor := intervalSeconds / 120 // To get the average of published predictions each 120 seconds.
-
 	historyEncodedAsMap := make(map[string]map[int]float64)
 
 	// Number of published predictions with prediction quality.
@@ -85,21 +82,6 @@ func createHistory(baseUrl string, staticPath string, forHoursInPast int, interv
 	// it will return no data instead of a zero value.
 	key = "prediction_service_subscription_count_total"
 	expression = "prediction_service_subscription_count_total OR vector(0)"
-	processedData, validHistory = processResponse(key, expression, baseUrl, staticPath, forHoursInPast, intervalMinutes, name)
-
-	// Add list with key to map
-	if validHistory {
-		historyEncodedAsMap[key] = make(map[int]float64)
-		for _, value := range processedData {
-			historyEncodedAsMap[key][value.Timestamp] = value.Value
-		}
-	}
-
-	// Number of published predictions.
-	// "OR vector(0)" is necessary, because otherwise if Prometheus has no data for the given time range,
-	// it will return no data instead of a zero value.
-	key = "average_prediction_service_predictions_count_total"
-	expression = "increase(prediction_service_predictions_count_total{}[" + strconv.Itoa(intervalSeconds) + "s]) / " + strconv.Itoa(intervalFactor) + " / 2 OR vector(0)"
 	processedData, validHistory = processResponse(key, expression, baseUrl, staticPath, forHoursInPast, intervalMinutes, name)
 
 	// Add list with key to map
