@@ -59,39 +59,26 @@ func createHistory(baseUrl string, staticPath string, forHoursInPast int, interv
 
 	historyEncodedAsMap := make(map[string]map[int]float64)
 
-	// Number of published predictions with prediction quality.
+	// Used as default values such that we have all the timestamps. Only for the prediction quality distribution buckets, because
+	// for the other query we get those timestamps from the prometheus already. Somehow this is not possible with the buckets.
+	defaultTimestamps := map[int]float64{}
+
+	// Number of all possible predictions.
 	// "OR vector(0)" is necessary, because otherwise if Prometheus has no data for the given time range,
 	// it will return no data instead of a zero value.
-	key := "prediction_service_good_prediction_total"
-	// In summary.go bad prediction quality is defined as <= 50.0, therefore we need at least 60.0
-	// +Inf contains everything that is smaller than infinity (so everything) and then we subtract the bad predictions, ie. everything that is <= 50.0
-	part1 := "sum(increase(prediction_service_prediction_quality_distribution_bucket{le=\"+Inf\"}[1800s]) / 15 / 2)-"
-	part2 := "sum(increase(prediction_service_prediction_quality_distribution_bucket{le=\"50.0\"}[1800s]) / 15 / 2)"
-	part3 := " OR vector(0)"
-	expression := part1 + part2 + part3
+	key := "prediction_service_subscription_count_total"
+	expression := "prediction_service_subscription_count_total OR vector(0)"
 	processedData, validHistory := processResponse(key, expression, baseUrl, staticPath, forHoursInPast, intervalMinutes, name)
 
 	// Add list with key to map
 	if validHistory {
 		historyEncodedAsMap[key] = make(map[int]float64)
 		for _, value := range processedData {
-			// if key already exists, add the value to the existing value, otherwise create a new entry
+			// If key already exists, add the value to the existing value, otherwise create a new entry.
+			// This is necessary because for each timestamp we have a zero value and for those where the prometheus has data,
+			// we have the actual value.
 			historyEncodedAsMap[key][value.Timestamp] += value.Value
-		}
-	}
-
-	// Number of all possible predictions.
-	// "OR vector(0)" is necessary, because otherwise if Prometheus has no data for the given time range,
-	// it will return no data instead of a zero value.
-	key = "prediction_service_subscription_count_total"
-	expression = "prediction_service_subscription_count_total OR vector(0)"
-	processedData, validHistory = processResponse(key, expression, baseUrl, staticPath, forHoursInPast, intervalMinutes, name)
-
-	// Add list with key to map
-	if validHistory {
-		historyEncodedAsMap[key] = make(map[int]float64)
-		for _, value := range processedData {
-			historyEncodedAsMap[key][value.Timestamp] = value.Value
+			defaultTimestamps[value.Timestamp] = 0
 		}
 	}
 
@@ -106,7 +93,33 @@ func createHistory(baseUrl string, staticPath string, forHoursInPast int, interv
 	if validHistory {
 		historyEncodedAsMap[key] = make(map[int]float64)
 		for _, value := range processedData {
-			historyEncodedAsMap[key][value.Timestamp] = value.Value
+			// If key already exists, add the value to the existing value, otherwise create a new entry.
+			// This is necessary because for each timestamp we have a zero value and for those where the prometheus has data,
+			// we have the actual value.
+			historyEncodedAsMap[key][value.Timestamp] += value.Value
+		}
+	}
+
+	// Number of published predictions with prediction quality.
+	key = "prediction_service_good_prediction_total"
+	// In summary.go bad prediction quality is defined as <= 50.0, therefore we need at least 60.0
+	// +Inf contains everything that is smaller than infinity (so everything) and then we subtract the bad predictions, ie. everything that is <= 50.0
+	part1 := "sum(increase(prediction_service_prediction_quality_distribution_bucket{le=\"+Inf\"}[1800s]) / 15 / 2)-"
+	part2 := "sum(increase(prediction_service_prediction_quality_distribution_bucket{le=\"50.0\"}[1800s]) / 15 / 2)"
+	expression = part1 + part2
+	processedData, validHistory = processResponse(key, expression, baseUrl, staticPath, forHoursInPast, intervalMinutes, name)
+
+	// Add list with key to map
+	if validHistory {
+		historyEncodedAsMap[key] = make(map[int]float64)
+		for _, value := range processedData {
+			// If key already exists, add the value to the existing value, otherwise create a new entry.
+			// This is necessary because for each timestamp we have a zero value and for those where the prometheus has data,
+			// we have the actual value.
+			historyEncodedAsMap[key][value.Timestamp] += value.Value
+		}
+		for timestamp := range defaultTimestamps {
+			historyEncodedAsMap[key][timestamp] += 0
 		}
 	}
 
@@ -249,6 +262,7 @@ func fetchFromPrometheus(baseUrl string, staticPath string, forHoursInPast int, 
 		log.Warning.Println("Could not sync ", name, " history:", err)
 		validHistory = false
 	}
+
 	return prometheusResponseParsed, err, validHistory
 }
 
