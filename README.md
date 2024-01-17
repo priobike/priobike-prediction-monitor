@@ -7,3 +7,4 @@ docker-compose up --build
 ```
 
 And access the generated static files under `localhost/<static file>`.
+ 
