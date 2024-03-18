@@ -1,7 +1,6 @@
 package main
 
 import (
-	"monitor/history"
 	"monitor/log"
 	"monitor/predictions"
 	"monitor/status"
@@ -19,9 +18,6 @@ func main() {
 
 	// Monitor the status of the predictions.
 	go status.Monitor()
-
-	// Start the sync of the history.
-	go history.Sync()
 
 	// Wait forever.
 	select {}
