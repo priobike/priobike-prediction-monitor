@@ -1,22 +1,36 @@
 version: "3.9"
 services:
-  app:
+  manager:
+    hostname: manager
     build:
       dockerfile: Dockerfile
       context: .
-    env_file: .env
-    volumes:
-      # Mount a volume under the shared nginx dir to serve static files
-      - ./static/:/usr/share/nginx/html/
+    networks:
+      - test-network
+    env_file: .env.manager
     restart: unless-stopped
-  nginx:
-    image: nginx:latest
-    volumes:
-      # Mount the same volume to serve static files
-      - ./static/:/usr/share/nginx/html/
+  worker-1:
+    build:
+      dockerfile: Dockerfile
+      context: .
+    networks:
+      - test-network
     ports:
       - "80:80"
-    depends_on:
-      - app
+    env_file: .env.worker
     restart: unless-stopped
+  worker-2:
+    build:
+      dockerfile: Dockerfile
+      context: .
+    networks:
+      - test-network
+    ports:
+      - "81:80"
+    env_file: .env.worker
+    restart: unless-stopped
+
+networks:
+  test-network:
+    name: test-network
   
