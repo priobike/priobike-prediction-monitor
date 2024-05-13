@@ -33,17 +33,35 @@ jobs:
           username: ${{ secrets.NEXUS_DOCKER_PUB_USERNAME }}
           password: ${{ secrets.NEXUS_DOCKER_PUB_PASSWORD }}
 
-      - name: Extract metadata (tags, labels) for Docker
+      - name: Extract metadata (tags, labels) for manager Docker image
         id: meta
         # See: https://github.com/docker/metadata-action
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-manager
 
-      - name: Build and push Docker image
+      - name: Build and push manager Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
+          file: Dockerfile.manager
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Extract metadata (tags, labels) for worker Docker image
+        id: meta
+        # See: https://github.com/docker/metadata-action
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-worker
+
+      - name: Build and push worker Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: Dockerfile.worker
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+

@@ -43,7 +43,7 @@ services:
     deploy:
       mode: replicated
       endpoint_mode: dnsrr
-      replicas: 2
+      replicas: 3
     restart: unless-stopped
 
 networks:
