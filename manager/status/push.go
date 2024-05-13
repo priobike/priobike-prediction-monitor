@@ -31,6 +31,7 @@ func PushFile(jsonData []byte, filePath string) {
 
 	for _, workerHost := range workerHosts {
 		retry := 2
+		succeeded := false
 		for retry > 0 {
 			body := &bytes.Buffer{}
 			length, writeErr := body.Write(jsonData)
@@ -53,7 +54,7 @@ func PushFile(jsonData []byte, filePath string) {
 			}
 			statusOK := resp.StatusCode >= 200 && resp.StatusCode < 300
 			if statusOK {
-				// All good
+				succeeded = true
 				// log.Info.Println(filePath + " pushed successfully")
 				break
 			}
@@ -69,6 +70,9 @@ func PushFile(jsonData []byte, filePath string) {
 			// Wait random time between 1 and 5 seconds
 			waitingTime := time.Duration(1 + 4*rand.Float64())
 			time.Sleep(waitingTime)
+		}
+		if !succeeded {
+			panic("could not push " + filePath + " to " + workerHost)
 		}
 	}
 }

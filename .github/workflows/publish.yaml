@@ -43,8 +43,8 @@ jobs:
       - name: Build and push manager Docker image
         uses: docker/build-push-action@v4
         with:
-          context: .
-          file: Dockerfile.manager
+          context: manager
+          file: Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -59,8 +59,8 @@ jobs:
       - name: Build and push worker Docker image
         uses: docker/build-push-action@v4
         with:
-          context: .
-          file: Dockerfile.worker
+          context: worker
+          file: Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
