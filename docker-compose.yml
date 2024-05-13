@@ -1,33 +1,49 @@
 version: "3.9"
 services:
+  traefik:
+    image: traefik:v2.9
+    hostname: traefik
+    networks:
+      - test-network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "80:80"
+    command:
+      - --providers.docker
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=test-network
+      - --entryPoints.web.address=:80
+
   manager:
     hostname: manager
     build:
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.manager
       context: .
     networks:
       - test-network
     env_file: .env.manager
-    restart: unless-stopped
-  worker-1:
+
+  nginx-worker:
+    hostname: worker
+    env_file:
+      - .env.worker
     build:
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.worker
       context: .
     networks:
       - test-network
-    ports:
-      - "80:80"
-    env_file: .env.worker
-    restart: unless-stopped
-  worker-2:
-    build:
-      dockerfile: Dockerfile
-      context: .
-    networks:
-      - test-network
-    ports:
-      - "81:80"
-    env_file: .env.worker
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.worker.rule=PathPrefix(`/`)
+      - traefik.http.routers.worker.entryPoints=web
+      - traefik.http.services.worker.loadbalancer.server.port=80
+      # Create htpasswd file and start nginx
+    command: sh -c "htpasswd -bc /etc/nginx/.htpasswd $$BASIC_AUTH_USER $$BASIC_AUTH_PASS && nginx -g 'daemon off;'"
+    deploy:
+      mode: replicated
+      endpoint_mode: dnsrr
+      replicas: 2
     restart: unless-stopped
 
 networks:

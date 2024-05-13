@@ -38,8 +38,6 @@ func WriteStatusForEachSG() {
 	predictions.TimestampsMutex.Lock()
 	defer predictions.TimestampsMutex.Unlock()
 
-	var topics []string
-
 	for _, thing := range sync.Things {
 		// Create the status summary.
 		status := SGStatus{
@@ -66,7 +64,6 @@ func WriteStatusForEachSG() {
 			continue
 		}
 		path := staticPath + thing.Topic()
-		topics = append(topics, thing.Topic())
 		if err := ioutil.WriteFile(path+"/status.json", statusJson, 0644); err != nil {
 			// If the path contains a directory that does not exist, create it.
 			// But don't create a folder for the file itself.
@@ -75,16 +72,6 @@ func WriteStatusForEachSG() {
 				continue
 			}
 		}
-	}
-
-	// Write index file.
-	indexJson, marshErr := json.Marshal(topics)
-	if marshErr != nil {
-		panic("Error marshalling index file: " + marshErr.Error())
-	}
-
-	writeErr := ioutil.WriteFile(staticPath+"thing-index.json", indexJson, 0644)
-	if writeErr != nil {
-		panic("Error writing index file: " + writeErr.Error())
+		PushFile(statusJson, thing.Topic()+"/status.json")
 	}
 }
