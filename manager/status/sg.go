@@ -72,5 +72,6 @@ func WriteStatusForEachSG() {
 				continue
 			}
 		}
+		PushFile(statusJson, thing.Topic()+"/status.json")
 	}
 }

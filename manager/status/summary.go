@@ -112,4 +112,5 @@ func WriteSummary() {
 		return
 	}
 	ioutil.WriteFile(staticPath+"status.json", statusJson, 0644)
+	PushFile(statusJson, "status.json")
 }

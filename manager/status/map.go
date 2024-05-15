@@ -109,6 +109,7 @@ func WriteGeoJSONMap() {
 		return
 	}
 	ioutil.WriteFile(staticPath+"predictions-locations.geojson", locationsGeoJson, 0644)
+	PushFile(locationsGeoJson, "predictions-locations.geojson")
 
 	lanesGeoJson, err := laneFeatureCollection.MarshalJSON()
 	if err != nil {
@@ -116,6 +117,7 @@ func WriteGeoJSONMap() {
 		return
 	}
 	ioutil.WriteFile(staticPath+"predictions-lanes.geojson", lanesGeoJson, 0644)
+	PushFile(lanesGeoJson, "predictions-lanes.geojson")
 
 	// Write the metrics to a file.
 	metricsString := ""

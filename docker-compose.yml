@@ -1,22 +1,50 @@
 version: "3.9"
 services:
-  app:
-    build:
-      dockerfile: Dockerfile
-      context: .
-    env_file: .env
+  traefik:
+    image: traefik:v2.9
+    hostname: traefik
+    networks:
+      - test-network
     volumes:
-      # Mount a volume under the shared nginx dir to serve static files
-      - ./static/:/usr/share/nginx/html/
-    restart: unless-stopped
-  nginx:
-    image: nginx:latest
-    volumes:
-      # Mount the same volume to serve static files
-      - ./static/:/usr/share/nginx/html/
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
       - "80:80"
-    depends_on:
-      - app
+    command:
+      - --providers.docker
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=test-network
+      - --entryPoints.web.address=:80
+
+  manager:
+    hostname: manager
+    build:
+      dockerfile: Dockerfile
+      context: manager
+    networks:
+      - test-network
+    env_file: .env.manager
+
+  nginx-worker:
+    hostname: worker
+    env_file:
+      - .env.worker
+    build:
+      dockerfile: Dockerfile
+      context: worker
+    networks:
+      - test-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.worker.rule=PathPrefix(`/`)
+      - traefik.http.routers.worker.entryPoints=web
+      - traefik.http.services.worker.loadbalancer.server.port=80
+    deploy:
+      mode: replicated
+      endpoint_mode: dnsrr
+      replicas: 3
     restart: unless-stopped
+
+networks:
+  test-network:
+    name: test-network
   
