@@ -34,7 +34,7 @@ jobs:
           password: ${{ secrets.NEXUS_DOCKER_PUB_PASSWORD }}
 
       - name: Extract metadata (tags, labels) for manager Docker image
-        id: meta
+        id: meta-manager
         # See: https://github.com/docker/metadata-action
         uses: docker/metadata-action@v4
         with:
@@ -46,11 +46,11 @@ jobs:
           context: manager
           file: Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta-manager.outputs.tags }}
+          labels: ${{ steps.meta-manager.outputs.labels }}
 
       - name: Extract metadata (tags, labels) for worker Docker image
-        id: meta
+        id: meta-worker
         # See: https://github.com/docker/metadata-action
         uses: docker/metadata-action@v4
         with:
@@ -62,6 +62,6 @@ jobs:
           context: worker
           file: Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta-worker.outputs.tags }}
+          labels: ${{ steps.meta-worker.outputs.labels }}
 
