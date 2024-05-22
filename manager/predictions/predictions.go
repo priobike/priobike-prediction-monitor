@@ -111,10 +111,8 @@ func Listen() {
 		opts.SetUsername(mqttUsername)
 		opts.SetPassword(mqttPassword)
 	}
-	opts.SetConnectTimeout(10 * time.Second)
-	opts.SetConnectRetry(true)
-	opts.SetConnectRetryInterval(5 * time.Second)
-	opts.SetAutoReconnect(true)
+	opts.SetConnectRetry(false)
+	opts.SetAutoReconnect(false)
 	opts.SetKeepAlive(60 * time.Second)
 	opts.SetPingTimeout(10 * time.Second)
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
@@ -145,7 +143,4 @@ func Listen() {
 
 	// Print the number of received messages periodically.
 	go Print()
-
-	// Wait forever.
-	select {}
 }

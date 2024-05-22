@@ -10,11 +10,13 @@ import (
 func main() {
 	log.Init()
 
+	// Start the prediction listener.
+	// We run this before doing anything else to ensure the prediction broker is online.
+	// If the broker is offline, it doesn't make sense to start the sync service.
+	predictions.Listen()
+
 	// Start the sync service.
 	go sync.Run()
-
-	// Start the prediction listener.
-	go predictions.Listen()
 
 	// Monitor the status of the predictions.
 	go status.Monitor()
