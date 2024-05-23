@@ -9,7 +9,7 @@ WORKDIR /app
 COPY . .
 
 RUN ["chmod", "+x", "./healthcheck.sh"]
-HEALTHCHECK --interval=90s --timeout=85s --retries=1 --start-period=2s CMD ./healthcheck.sh
+HEALTHCHECK --interval=90s --timeout=85s --retries=3 --start-period=2s CMD ./healthcheck.sh
 
 RUN go mod download
 RUN go build -o main .
