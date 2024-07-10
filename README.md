@@ -2,7 +2,7 @@
 
 This service can be used to monitor predictions of a traffic light prediction service. This service in itself does not make predictions, but you can configure it to listen to predictions made by a prediction service and monitor the predictions. It creates Prometheus metrics as well as a .json file for each traffic light with relevant information about the current prediction quality status of the traffic light. Furthermore it also creates .geojson file of all traffic light positions and their corresponding lane.
 
-In the PrioBike project it monitors the predictions created by the [prediction services](https://github.com/priobike/priobike-prediction-service). We use the monitoring of the predictions in the app to provide information about the prediction quality along the routes of the users as well as to provide transparency to the users in case of data outages or other issues.
+In the PrioBike project it monitors the predictions created by the [prediction service](https://github.com/priobike/priobike-prediction-service). We use the monitoring of the predictions in the app to provide information about the prediction quality along the routes of the users as well as to provide transparency to the users in case of data outages or other issues.
 
 [Learn more about PrioBike](https://github.com/priobike)
 
